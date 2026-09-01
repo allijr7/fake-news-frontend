@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import './App.css';
-import { User, Lock, ShieldCheck, History as HistoryIcon, Sparkles, FileText, Link2, Search, LogOut } from 'lucide-react';
+import { User, Lock, ShieldCheck, History as HistoryIcon, Sparkles, FileText, Link2, Search, LogOut, Eye, EyeOff } from 'lucide-react';
 
 
 const API_BASE = 'https://fake-news-detector-api-oa3e.onrender.com';
@@ -23,6 +23,7 @@ function App() {
   const [result, setResult] = useState(null);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
 
   // --- History state ---
@@ -204,11 +205,19 @@ function App() {
               <div className="input-with-icon">
                 <Lock size={16} className="input-icon" />
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   placeholder="Enter your password"
                   value={authPassword}
                   onChange={(e) => setAuthPassword(e.target.value)}
                 />
+                <button
+                  type="button"
+                  className="toggle-password"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
 
               <button className="check-btn" onClick={handleAuth} disabled={authLoading}>
