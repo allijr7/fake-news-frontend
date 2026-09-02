@@ -3,7 +3,9 @@ import './App.css';
 import { User, Lock, ShieldCheck, History as HistoryIcon, Sparkles, FileText, Link2, Search, LogOut, Eye, EyeOff } from 'lucide-react';
 
 
-const API_BASE = 'https://fake-news-detector-api-oa3e.onrender.com';
+const API_BASE = import.meta.env.DEV
+  ? 'http://127.0.0.1:5000'
+  : 'https://fake-news-detector-api-oa3e.onrender.com';
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem('token') || '');
