@@ -10,6 +10,7 @@ const API_BASE = import.meta.env.DEV
 function App() {
   const [token, setToken] = useState(localStorage.getItem('token') || '');
   const [username, setUsername] = useState(localStorage.getItem('username') || '');
+  const [role, setRole] = useState(localStorage.getItem('role') || 'user');
   const [page, setPage] = useState('checker'); // 'checker' | 'history'
 
   // --- Auth form state ---
@@ -18,6 +19,7 @@ function App() {
   const [authPassword, setAuthPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
+  const [loginRole, setLoginRole] = useState('user'); // 'user' | 'admin'
 
   // --- Checker state ---
   const [inputType, setInputType] = useState('text');
@@ -31,6 +33,10 @@ function App() {
   // --- History state ---
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [adminUsers, setAdminUsers] = useState([]);
+  const [adminChecks, setAdminChecks] = useState([]);
+  const [adminLoading, setAdminLoading] = useState(false);
+  const [adminTab, setAdminTab] = useState('users');
 
   // --- Menu state ---
   const [menuOpen, setMenuOpen] = useState(false);
@@ -51,13 +57,20 @@ function App() {
 
       if (!response.ok) {
         setAuthError(data.error || 'Something went wrong');
+      } else if (authMode === 'login' && loginRole === 'admin' && data.role !== 'admin') {
+        setAuthError('This account does not have admin access.');
       } else {
         setToken(data.token);
         setUsername(data.username);
+        setRole(data.role);
         localStorage.setItem('token', data.token);
         localStorage.setItem('username', data.username);
+        localStorage.setItem('role', data.role);
         setAuthUsername('');
         setAuthPassword('');
+        if (data.role === 'admin' && loginRole === 'admin') {
+          setPage('admin');
+        }
       }
     } catch (err) {
       setAuthError('Could not reach the server. Is the Flask API running?');
@@ -69,8 +82,10 @@ function App() {
   const handleLogout = () => {
     setToken('');
     setUsername('');
+    setRole('user');
     localStorage.removeItem('token');
     localStorage.removeItem('username');
+    localStorage.removeItem('role');
     setResult(null);
     setHistory([]);
     setPage('checker');
@@ -120,6 +135,42 @@ function App() {
       setLoading(false);
     }
   };
+  
+  const loadAdminData = async () => {
+    setAdminLoading(true);
+    try {
+      const [usersRes, checksRes] = await Promise.all([
+        fetch(`${API_BASE}/admin/users`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`${API_BASE}/admin/checks`, { headers: { 'Authorization': `Bearer ${token}` } }),
+      ]);
+      if (usersRes.status === 401 || usersRes.status === 422) {
+        handleLogout();
+        setAuthError('Your session expired — please log in again.');
+        return;
+      }
+      const usersData = await usersRes.json();
+      const checksData = await checksRes.json();
+      if (usersRes.ok) setAdminUsers(usersData);
+      if (checksRes.ok) setAdminChecks(checksData);
+    } catch (err) {
+      // silent fail acceptable
+    } finally {
+      setAdminLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async (id) => {
+    if (!window.confirm('Delete this user and all their history? This cannot be undone.')) return;
+    try {
+      await fetch(`${API_BASE}/admin/users/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      setAdminUsers((prev) => prev.filter((u) => u.id !== id));
+    } catch (err) {
+      // silent fail acceptable
+    }
+  };
 
   const loadHistory = async () => {
     setHistoryLoading(true);
@@ -157,6 +208,9 @@ function App() {
     if (token && page === 'history') {
       loadHistory();
     }
+    if (token && page === 'admin') {
+      loadAdminData();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, token]);
 
@@ -191,6 +245,23 @@ function App() {
                   ? 'Enter your credentials to access your record.'
                   : 'Set up an account to start verifying articles.'}
               </p>
+
+              {authMode === 'login' && (
+                <div className="role-tabs">
+                  <button
+                    className={loginRole === 'user' ? 'active' : ''}
+                    onClick={() => setLoginRole('user')}
+                  >
+                    User
+                  </button>
+                  <button
+                    className={loginRole === 'admin' ? 'active' : ''}
+                    onClick={() => setLoginRole('admin')}
+                  >
+                    Admin
+                  </button>
+                </div>
+              )}
 
               <label className="field-label">Username</label>
               <div className="input-with-icon">
@@ -277,6 +348,14 @@ function App() {
                 >
                   <HistoryIcon size={15} /> History
                 </button>
+                {role === 'admin' && (
+                  <button
+                    className={page === 'admin' ? 'active' : ''}
+                    onClick={() => { setPage('admin'); setMenuOpen(false); }}
+                  >
+                    <ShieldCheck size={15} /> Admin
+                  </button>
+                )}
                 <hr className="dropdown-divider" />
                 <button className="logout-item" onClick={handleLogout}>
                   <LogOut size={15} /> Log out
@@ -389,6 +468,81 @@ function App() {
                 </div>
               ))}
             </div>
+          </>
+        )}
+        {page === 'admin' && role === 'admin' && (
+          <>
+            <h2 className="content-title">Admin Panel</h2>
+            <p className="subtitle content-subtitle">System-wide users and activity.</p>
+
+            <div className="toggle">
+              <button className={adminTab === 'users' ? 'active' : ''} onClick={() => setAdminTab('users')}>
+                Users
+              </button>
+              <button className={adminTab === 'checks' ? 'active' : ''} onClick={() => setAdminTab('checks')}>
+                Activity
+              </button>
+            </div>
+
+            {adminLoading && <div className="spinner" />}
+
+            {!adminLoading && adminTab === 'users' && (
+              <div className="admin-table-wrapper">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Username</th>
+                      <th>Role</th>
+                      <th>Checks</th>
+                      <th>Joined</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adminUsers.map((u) => (
+                      <tr key={u.id}>
+                        <td>{u.username}</td>
+                        <td><span className={`role-badge ${u.role}`}>{u.role}</span></td>
+                        <td>{u.check_count}</td>
+                        <td>{new Date(u.created_at).toLocaleDateString()}</td>
+                        <td>
+                          {u.role !== 'admin' && (
+                            <button className="delete-btn" onClick={() => handleDeleteUser(u.id)}>Remove</button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {!adminLoading && adminTab === 'checks' && (
+              <div className="admin-table-wrapper">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>User</th>
+                      <th>Type</th>
+                      <th>Verdict</th>
+                      <th>Confidence</th>
+                      <th>Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adminChecks.map((c) => (
+                      <tr key={c.id}>
+                        <td>{c.username}</td>
+                        <td>{c.input_type}</td>
+                        <td><span className={`mini-stamp ${c.label.toLowerCase()}`}>{c.label}</span></td>
+                        <td>{c.confidence}%</td>
+                        <td>{new Date(c.checked_at).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </>
         )}
       </div>
