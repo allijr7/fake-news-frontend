@@ -794,3 +794,15 @@ textarea, input[type="text"], input[type="password"] {
 .role-tabs button:not(.active):hover {
   background: #E0DBCC;
 }
+
+.role-select {
+  font-size: 12px;
+  padding: 4px 8px;
+  border: 1px solid #9C968A;
+  border-radius: 4px;
+  background: #FBFAF6;
+  color: #1F1D1B;
+  font-family: 'Inter', sans-serif;
+  text-transform: uppercase;
+  cursor: pointer;
+}

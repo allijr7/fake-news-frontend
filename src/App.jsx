@@ -10,6 +10,7 @@ const API_BASE = import.meta.env.DEV
 function App() {
   const [token, setToken] = useState(localStorage.getItem('token') || '');
   const [username, setUsername] = useState(localStorage.getItem('username') || '');
+  const [isSuperAdmin, setIsSuperAdmin] = useState(localStorage.getItem('isSuperAdmin') === 'true');
   const [role, setRole] = useState(localStorage.getItem('role') || 'user');
   const [page, setPage] = useState('checker'); // 'checker' | 'history'
 
@@ -63,9 +64,11 @@ function App() {
         setToken(data.token);
         setUsername(data.username);
         setRole(data.role);
+        setIsSuperAdmin(data.is_super_admin);
         localStorage.setItem('token', data.token);
         localStorage.setItem('username', data.username);
         localStorage.setItem('role', data.role);
+        localStorage.setItem('isSuperAdmin', data.is_super_admin);
         setAuthUsername('');
         setAuthPassword('');
         if (data.role === 'admin' && loginRole === 'admin') {
@@ -83,9 +86,11 @@ function App() {
     setToken('');
     setUsername('');
     setRole('user');
+    setIsSuperAdmin(false);
     localStorage.removeItem('token');
     localStorage.removeItem('username');
     localStorage.removeItem('role');
+    localStorage.removeItem('isSuperAdmin');
     setResult(null);
     setHistory([]);
     setPage('checker');
@@ -156,6 +161,24 @@ function App() {
       // silent fail acceptable
     } finally {
       setAdminLoading(false);
+    }
+  };
+  
+  const handleChangeRole = async (id, newRole) => {
+    try {
+      const res = await fetch(`${API_BASE}/admin/users/${id}/role`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ role: newRole }),
+      });
+      if (res.ok) {
+        setAdminUsers((prev) => prev.map((u) => (u.id === id ? { ...u, role: newRole } : u)));
+      }
+    } catch (err) {
+      // silent fail acceptable
     }
   };
 
@@ -502,11 +525,26 @@ function App() {
                     {adminUsers.map((u) => (
                       <tr key={u.id}>
                         <td>{u.username}</td>
-                        <td><span className={`role-badge ${u.role}`}>{u.role}</span></td>
+                        <td>
+                          {isSuperAdmin && !u.is_super_admin ? (
+                            <select
+                              className="role-select"
+                              value={u.role}
+                              onChange={(e) => handleChangeRole(u.id, e.target.value)}
+                            >
+                              <option value="user">user</option>
+                              <option value="admin">admin</option>
+                            </select>
+                          ) : (
+                            <span className={`role-badge ${u.role}`}>
+                              {u.is_super_admin ? 'super admin' : u.role}
+                            </span>
+                          )}
+                        </td>
                         <td>{u.check_count}</td>
                         <td>{new Date(u.created_at).toLocaleDateString()}</td>
                         <td>
-                          {u.role !== 'admin' && (
+                          {!u.is_super_admin && (
                             <button className="delete-btn" onClick={() => handleDeleteUser(u.id)}>Remove</button>
                           )}
                         </td>
