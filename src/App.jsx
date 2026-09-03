@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import './App.css';
-import { User, Lock, ShieldCheck, History as HistoryIcon, Sparkles, FileText, Link2, Search, LogOut, Eye, EyeOff } from 'lucide-react';
+import { User, Lock, ShieldCheck, History as HistoryIcon, Sparkles, FileText, Link2, Search, LogOut, Eye, EyeOff, Moon, Sun } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 
 const API_BASE = import.meta.env.DEV
@@ -13,6 +15,13 @@ function App() {
   const [isSuperAdmin, setIsSuperAdmin] = useState(localStorage.getItem('isSuperAdmin') === 'true');
   const [role, setRole] = useState(localStorage.getItem('role') || 'user');
   const [page, setPage] = useState('checker'); // 'checker' | 'history'
+  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
+
+  useEffect(() => {
+    document.body.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
 
   // --- Auth form state ---
   const [authMode, setAuthMode] = useState('login'); // 'login' | 'register'
@@ -30,17 +39,37 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [retryCountdown, setRetryCountdown] = useState(0);
+
+  useEffect(() => {
+    if (retryCountdown <= 0) return;
+    const timer = setInterval(() => {
+      setRetryCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          setError('');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [retryCountdown]);
 
   // --- History state ---
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+
+  // --- Admin state ---
   const [adminUsers, setAdminUsers] = useState([]);
   const [adminChecks, setAdminChecks] = useState([]);
   const [adminLoading, setAdminLoading] = useState(false);
   const [adminTab, setAdminTab] = useState('users');
+  const [adminSearch, setAdminSearch] = useState('');
 
   // --- Menu state ---
   const [menuOpen, setMenuOpen] = useState(false);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
 
   const handleAuth = async () => {
     if (!authUsername.trim() || !authPassword) return;
@@ -124,11 +153,21 @@ function App() {
         body: JSON.stringify(body),
       });
 
-      const data = await response.json();
+      let data = {};
+      try {
+        data = await response.json();
+      } catch (e) {
+        data = {};
+      }
 
       if (response.status === 401 || response.status === 422) {
         handleLogout();
         setAuthError('Your session expired — please log in again.');
+      } else if (response.status === 429) {
+        const retryAfter = response.headers.get('Retry-After');
+        const seconds = retryAfter ? parseInt(retryAfter, 10) : 60;
+        setRetryCountdown(seconds);
+        setError(`Too many checks in a short time — try again in ${seconds}s.`);
       } else if (!response.ok) {
         setError(data.error || data.msg || 'Something went wrong');
       } else {
@@ -213,6 +252,57 @@ function App() {
     } finally {
       setHistoryLoading(false);
     }
+  };
+
+  const handleExportHistory = () => {
+    if (history.length === 0) return;
+
+    const headers = ['Date', 'Type', 'Verdict', 'Confidence', 'Preview'];
+    const rows = history.map((item) => [
+      new Date(item.checked_at).toLocaleString(),
+      item.input_type,
+      item.label,
+      `${item.confidence}%`,
+      `"${item.text_preview.replace(/"/g, '""')}"`,
+    ]);
+
+    const csvContent = [headers, ...rows].map((row) => row.join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `check-history-${username}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportPDF = () => {
+    if (history.length === 0) return;
+
+    const doc = new jsPDF();
+
+    doc.setFontSize(18);
+    doc.text('Fake News Detector — Check History', 14, 18);
+    doc.setFontSize(10);
+    doc.text(`User: ${username}`, 14, 25);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30);
+
+    autoTable(doc, {
+      startY: 36,
+      head: [['Date', 'Type', 'Verdict', 'Confidence', 'Preview']],
+      body: history.map((item) => [
+        new Date(item.checked_at).toLocaleString(),
+        item.input_type,
+        item.label,
+        `${item.confidence}%`,
+        item.text_preview.length > 60 ? item.text_preview.slice(0, 60) + '...' : item.text_preview,
+      ]),
+      styles: { fontSize: 8, cellPadding: 3 },
+      headStyles: { fillColor: [31, 29, 27] },
+    });
+
+    doc.save(`check-history-${username}.pdf`);
   };
 
   const handleDeleteHistory = async (id) => {
@@ -342,10 +432,10 @@ function App() {
   // ---------- LOGGED IN VIEW ----------
   return (
     <div className="app">
-      <div className="masthead">
-        <p className="kicker">Editorial Verification Desk</p>
-        <h1>Fake News Detector</h1>
-      </div>
+        <div className="masthead">
+          <p className="kicker">Editorial Verification Desk</p>
+          <h1>Fake News Detector</h1>
+        </div>
       <hr className="rule" />
 
       <div className="nav-bar">
@@ -379,6 +469,10 @@ function App() {
                     <ShieldCheck size={15} /> Admin
                   </button>
                 )}
+                <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
+                  {theme === 'light' ? <Moon size={15} /> : <Sun size={15} />}
+                  {theme === 'light' ? 'Dark mode' : 'Light mode'}
+                </button>
                 <hr className="dropdown-divider" />
                 <button className="logout-item" onClick={handleLogout}>
                   <LogOut size={15} /> Log out
@@ -424,7 +518,13 @@ function App() {
               {loading ? 'Checking...' : <><Search size={15} /> Check the record</>}
             </button>
 
-            {error && <p className="error">{error}</p>}
+            {error && (
+              <p className="error">
+                {retryCountdown > 0
+                  ? `Too many checks in a short time — try again in ${retryCountdown}s.`
+                  : error}
+              </p>
+            )}
 
             {result && (
             <div className={`result ${result.label.toLowerCase()}`}>
@@ -471,7 +571,27 @@ function App() {
             <p className="subtitle content-subtitle">Every article you've checked, most recent first.</p>
 
             <div className="history">
-              {historyLoading && <div className="spinner"/>}
+            {!historyLoading && history.length > 0 && (
+              <div className="export-wrapper">
+                <button className="export-btn" onClick={() => setExportMenuOpen(!exportMenuOpen)}>
+                  Export ▾
+                </button>
+                {exportMenuOpen && (
+                  <>
+                    <div className="menu-overlay" onClick={() => setExportMenuOpen(false)} />
+                    <div className="export-dropdown">
+                      <button onClick={() => { handleExportHistory(); setExportMenuOpen(false); }}>
+                        Export as CSV
+                      </button>
+                      <button onClick={() => { handleExportPDF(); setExportMenuOpen(false); }}>
+                        Export as PDF
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+            {historyLoading && <div className="spinner" />}
 
               {!historyLoading && history.length === 0 && (
                 <p className="subtitle">No checks yet — head to the Checker tab to verify your first article.</p>
@@ -509,6 +629,16 @@ function App() {
 
             {adminLoading && <div className="spinner" />}
 
+            {!adminLoading && (
+              <input
+                type="text"
+                className="admin-search"
+                placeholder={adminTab === 'users' ? 'Search by username...' : 'Search by username or verdict...'}
+                value={adminSearch}
+                onChange={(e) => setAdminSearch(e.target.value)}
+              />
+            )}
+
             {!adminLoading && adminTab === 'users' && (
               <div className="admin-table-wrapper">
                 <table className="admin-table">
@@ -522,7 +652,9 @@ function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {adminUsers.map((u) => (
+                    {adminUsers
+                      .filter((u) => u.username.toLowerCase().includes(adminSearch.toLowerCase()))
+                      .map((u) => (
                       <tr key={u.id}>
                         <td>{u.username}</td>
                         <td>
@@ -568,7 +700,12 @@ function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {adminChecks.map((c) => (
+                    {adminChecks
+                      .filter((c) =>
+                        c.username.toLowerCase().includes(adminSearch.toLowerCase()) ||
+                        c.label.toLowerCase().includes(adminSearch.toLowerCase())
+                      )
+                      .map((c) => (
                       <tr key={c.id}>
                         <td>{c.username}</td>
                         <td>{c.input_type}</td>
