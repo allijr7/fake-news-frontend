@@ -518,6 +518,15 @@ function App() {
               {loading ? 'Checking...' : <><Search size={15} /> Check the record</>}
             </button>
 
+            {loading && (
+              <div className="skeleton-result">
+                <div className="skeleton-line skeleton-stamp"></div>
+                <div className="skeleton-line skeleton-bar"></div>
+                <div className="skeleton-line skeleton-text"></div>
+                <div className="skeleton-line skeleton-text short"></div>
+              </div>
+            )}
+
             {error && (
               <p className="error">
                 {retryCountdown > 0
@@ -574,7 +583,7 @@ function App() {
             {!historyLoading && history.length > 0 && (
               <div className="export-wrapper">
                 <button className="export-btn" onClick={() => setExportMenuOpen(!exportMenuOpen)}>
-                  Export ▾
+                  Export  ▾
                 </button>
                 {exportMenuOpen && (
                   <>
@@ -591,7 +600,17 @@ function App() {
                 )}
               </div>
             )}
-            {historyLoading && <div className="spinner" />}
+            {historyLoading && (
+              <div className="skeleton-list">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="skeleton-card">
+                    <div className="skeleton-line skeleton-stamp"></div>
+                    <div className="skeleton-line skeleton-text"></div>
+                    <div className="skeleton-line skeleton-text short"></div>
+                  </div>
+                ))}
+              </div>
+            )}
 
               {!historyLoading && history.length === 0 && (
                 <p className="subtitle">No checks yet — head to the Checker tab to verify your first article.</p>
@@ -627,7 +646,13 @@ function App() {
               </button>
             </div>
 
-            {adminLoading && <div className="spinner" />}
+            {adminLoading && (
+              <div className="skeleton-table">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="skeleton-row"></div>
+                ))}
+              </div>
+            )}
 
             {!adminLoading && (
               <input
