@@ -59,6 +59,7 @@ function App() {
   // --- History state ---
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyScrolled, setHistoryScrolled] = useState(false); // tracks scroll position for the floating "Top" button
 
   // --- Admin state ---
   const [adminUsers, setAdminUsers] = useState([]);
@@ -66,6 +67,8 @@ function App() {
   const [adminLoading, setAdminLoading] = useState(false);
   const [adminTab, setAdminTab] = useState('users');
   const [adminSearch, setAdminSearch] = useState('');
+  const [adminScrolled, setAdminScrolled] = useState(false); // tracks scroll position for the floating "Top" button
+
 
   // --- Menu state ---
   const [menuOpen, setMenuOpen] = useState(false);
@@ -179,7 +182,7 @@ function App() {
       setLoading(false);
     }
   };
-  
+
   const loadAdminData = async () => {
     setAdminLoading(true);
     try {
@@ -202,7 +205,7 @@ function App() {
       setAdminLoading(false);
     }
   };
-  
+
   const handleChangeRole = async (id, newRole) => {
     try {
       const res = await fetch(`${API_BASE}/admin/users/${id}/role`, {
@@ -332,8 +335,8 @@ function App() {
     return (
       <div className="auth-page">
         <div className="masthead top-masthead">
-          <p className="kicker">Editorial Verification Desk</p>
           <h1>Fake News Detector</h1>
+          <p className="kicker">Editorial Verification Desk</p>
         </div>
 
         <div className="auth-split">
@@ -427,15 +430,15 @@ function App() {
       </div>
     );
   }
-      
+
 
   // ---------- LOGGED IN VIEW ----------
   return (
     <div className="app">
-        <div className="masthead">
-          <p className="kicker">Editorial Verification Desk</p>
-          <h1>Fake News Detector</h1>
-        </div>
+      <div className="masthead">
+        <h1>Fake News Detector</h1>
+        <p className="kicker">Editorial Verification Desk</p>
+      </div>
       <hr className="rule" />
 
       <div className="nav-bar">
@@ -536,25 +539,25 @@ function App() {
             )}
 
             {result && (
-            <div className={`result ${result.label.toLowerCase()}`}>
-              <button
-                className={`copy-btn ${copied ? 'copied' : ''}`}
-                onClick={() => {
-                  navigator.clipboard.writeText(
-                    `Verdict: ${result.label} (${result.confidence}% confidence)\n"${result.extracted_text_preview}..."`
-                  );
-                  setCopied(true);
-                  setTimeout(() => setCopied(false), 2000);
-                }}
-              >
-                {copied ? 'Copied ✓' : 'Copy result'}
-              </button>
-              <div className="stamp">{result.label === 'Real' ? 'Verified' : result.label === 'Fake' ? 'Flagged' : 'Uncertain'}</div>
-              <p className="confidence">Confidence: {result.confidence}%</p>
+              <div className={`result ${result.label.toLowerCase()}`}>
+                <button
+                  className={`copy-btn ${copied ? 'copied' : ''}`}
+                  onClick={() => {
+                    navigator.clipboard.writeText(
+                      `Verdict: ${result.label} (${result.confidence}% confidence)\n"${result.extracted_text_preview}..."`
+                    );
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                >
+                  {copied ? 'Copied ✓' : 'Copy result'}
+                </button>
+                <div className="stamp">{result.label === 'Real' ? 'Verified' : result.label === 'Fake' ? 'Flagged' : 'Uncertain'}</div>
+                <p className="confidence">Confidence: {result.confidence}%</p>
                 <div className="confidence-bar-track">
                   <div
-                  className={`confidence-bar-fill ${result.label.toLowerCase()}`}
-                  style={{ width: `${result.confidence}%` }}
+                    className={`confidence-bar-fill ${result.label.toLowerCase()}`}
+                    style={{ width: `${result.confidence}%` }}
                   />
                 </div>
                 <p className="preview">"{result.extracted_text_preview}..."</p>
@@ -579,11 +582,10 @@ function App() {
             <h2 className="content-title">Your Record</h2>
             <p className="subtitle content-subtitle">Every article you've checked, most recent first.</p>
 
-            <div className="history">
             {!historyLoading && history.length > 0 && (
               <div className="export-wrapper">
                 <button className="export-btn" onClick={() => setExportMenuOpen(!exportMenuOpen)}>
-                  Export  ▾
+                  Export ▾
                 </button>
                 {exportMenuOpen && (
                   <>
@@ -600,6 +602,7 @@ function App() {
                 )}
               </div>
             )}
+
             {historyLoading && (
               <div className="skeleton-list">
                 {[1, 2, 3].map((i) => (
@@ -612,26 +615,47 @@ function App() {
               </div>
             )}
 
-              {!historyLoading && history.length === 0 && (
-                <p className="subtitle">No checks yet — head to the Checker tab to verify your first article.</p>
-              )}
+            {!historyLoading && history.length === 0 && (
+              <p className="subtitle">No checks yet — head to the Checker tab to verify your first article.</p>
+            )}
 
-              {!historyLoading && history.map((item) => (
-                <div key={item.id} className={`history-item ${item.label.toLowerCase()}`}>
-                  <div className="history-item-header">
-                    <span className={`mini-stamp ${item.label.toLowerCase()}`}>{item.label === 'Real' ? 'Verified' : item.label === 'Fake' ? 'Flagged' : 'Uncertain'}</span>
-                    <span className="history-date">{new Date(item.checked_at).toLocaleString()}</span>
-                  </div>
-                  <p className="preview">"{item.text_preview}..."</p>
-                  <div className="history-footer">
-                    <p className="history-confidence">Confidence: {item.confidence}%</p>
-                    <button className="delete-btn" onClick={() => handleDeleteHistory(item.id)}>Remove</button>
-                  </div>
+            {/* Scrollable history list with a floating "back to top" button that only
+                appears once the user has scrolled down inside this section. */}
+            {!historyLoading && history.length > 0 && (
+              <div className="scroll-container">
+                <div
+                  className="history history-scroll"
+                  id="history-scroll"
+                  onScroll={(e) => setHistoryScrolled(e.target.scrollTop > 40)}
+                >
+                  {history.map((item) => (
+                    <div key={item.id} className={`history-item ${item.label.toLowerCase()}`}>
+                      <div className="history-item-header">
+                        <span className={`mini-stamp ${item.label.toLowerCase()}`}>{item.label === 'Real' ? 'Verified' : item.label === 'Fake' ? 'Flagged' : 'Uncertain'}</span>
+                        <span className="history-date">{new Date(item.checked_at).toLocaleString()}</span>
+                      </div>
+                      <p className="preview">"{item.text_preview}..."</p>
+                      <div className="history-footer">
+                        <p className="history-confidence">Confidence: {item.confidence}%</p>
+                        <button className="delete-btn" onClick={() => handleDeleteHistory(item.id)}>Remove</button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+
+                {historyScrolled && (
+                  <button
+                    className="back-to-top floating"
+                    onClick={() => document.getElementById('history-scroll')?.scrollTo({ top: 0, behavior: 'smooth' })}
+                  >
+                    ↑ Top
+                  </button>
+                )}
+              </div>
+            )}
           </>
         )}
+
         {page === 'admin' && role === 'admin' && (
           <>
             <h2 className="content-title">Admin Panel</h2>
@@ -664,83 +688,115 @@ function App() {
               />
             )}
 
+            {/* Same scrollable + floating "back to top" pattern as History, applied to
+                whichever admin table is currently active. */}
             {!adminLoading && adminTab === 'users' && (
-              <div className="admin-table-wrapper">
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th>Username</th>
-                      <th>Role</th>
-                      <th>Checks</th>
-                      <th>Joined</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {adminUsers
-                      .filter((u) => u.username.toLowerCase().includes(adminSearch.toLowerCase()))
-                      .map((u) => (
-                      <tr key={u.id}>
-                        <td>{u.username}</td>
-                        <td>
-                          {isSuperAdmin && !u.is_super_admin ? (
-                            <select
-                              className="role-select"
-                              value={u.role}
-                              onChange={(e) => handleChangeRole(u.id, e.target.value)}
-                            >
-                              <option value="user">user</option>
-                              <option value="admin">admin</option>
-                            </select>
-                          ) : (
-                            <span className={`role-badge ${u.role}`}>
-                              {u.is_super_admin ? 'super admin' : u.role}
-                            </span>
-                          )}
-                        </td>
-                        <td>{u.check_count}</td>
-                        <td>{new Date(u.created_at).toLocaleDateString()}</td>
-                        <td>
-                          {!u.is_super_admin && (
-                            <button className="delete-btn" onClick={() => handleDeleteUser(u.id)}>Remove</button>
-                          )}
-                        </td>
+              <div className="scroll-container">
+                <div
+                  className="admin-table-wrapper admin-scroll"
+                  id="admin-scroll"
+                  onScroll={(e) => setAdminScrolled(e.target.scrollTop > 40)}
+                >
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Username</th>
+                        <th>Role</th>
+                        <th>Checks</th>
+                        <th>Joined</th>
+                        <th></th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {adminUsers
+                        .filter((u) => u.username.toLowerCase().includes(adminSearch.toLowerCase()))
+                        .map((u) => (
+                          <tr key={u.id}>
+                            <td>{u.username}</td>
+                            <td>
+                              {isSuperAdmin && !u.is_super_admin ? (
+                                <select
+                                  className="role-select"
+                                  value={u.role}
+                                  onChange={(e) => handleChangeRole(u.id, e.target.value)}
+                                >
+                                  <option value="user">user</option>
+                                  <option value="admin">admin</option>
+                                </select>
+                              ) : (
+                                <span className={`role-badge ${u.role}`}>
+                                  {u.is_super_admin ? 'super admin' : u.role}
+                                </span>
+                              )}
+                            </td>
+                            <td>{u.check_count}</td>
+                            <td>{new Date(u.created_at).toLocaleDateString()}</td>
+                            <td>
+                              {!u.is_super_admin && (
+                                <button className="delete-btn" onClick={() => handleDeleteUser(u.id)}>Remove</button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {adminScrolled && (
+                  <button
+                    className="back-to-top floating"
+                    onClick={() => document.getElementById('admin-scroll')?.scrollTo({ top: 0, behavior: 'smooth' })}
+                  >
+                    ↑ Top
+                  </button>
+                )}
               </div>
             )}
 
             {!adminLoading && adminTab === 'checks' && (
-              <div className="admin-table-wrapper">
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th>User</th>
-                      <th>Type</th>
-                      <th>Verdict</th>
-                      <th>Confidence</th>
-                      <th>Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {adminChecks
-                      .filter((c) =>
-                        c.username.toLowerCase().includes(adminSearch.toLowerCase()) ||
-                        c.label.toLowerCase().includes(adminSearch.toLowerCase())
-                      )
-                      .map((c) => (
-                      <tr key={c.id}>
-                        <td>{c.username}</td>
-                        <td>{c.input_type}</td>
-                        <td><span className={`mini-stamp ${c.label.toLowerCase()}`}>{c.label}</span></td>
-                        <td>{c.confidence}%</td>
-                        <td>{new Date(c.checked_at).toLocaleString()}</td>
+              <div className="scroll-container">
+                <div
+                  className="admin-table-wrapper admin-scroll"
+                  id="admin-scroll"
+                  onScroll={(e) => setAdminScrolled(e.target.scrollTop > 40)}
+                >
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>User</th>
+                        <th>Type</th>
+                        <th>Verdict</th>
+                        <th>Confidence</th>
+                        <th>Date</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {adminChecks
+                        .filter((c) =>
+                          c.username.toLowerCase().includes(adminSearch.toLowerCase()) ||
+                          c.label.toLowerCase().includes(adminSearch.toLowerCase())
+                        )
+                        .map((c) => (
+                          <tr key={c.id}>
+                            <td>{c.username}</td>
+                            <td>{c.input_type}</td>
+                            <td><span className={`mini-stamp ${c.label.toLowerCase()}`}>{c.label}</span></td>
+                            <td>{c.confidence}%</td>
+                            <td>{new Date(c.checked_at).toLocaleString()}</td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {adminScrolled && (
+                  <button
+                    className="back-to-top floating"
+                    onClick={() => document.getElementById('admin-scroll')?.scrollTo({ top: 0, behavior: 'smooth' })}
+                  >
+                    ↑ Top
+                  </button>
+                )}
               </div>
             )}
           </>
