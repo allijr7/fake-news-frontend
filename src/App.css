@@ -1001,3 +1001,27 @@ textarea:focus, input:focus {
 .admin-scroll::-webkit-scrollbar-track {
   background: transparent;
 }
+
+.success-message {
+  color: var(--real);
+  margin-top: 16px;
+  font-size: 14px;
+  border-left: 3px solid var(--real);
+  padding-left: 10px;
+}
+
+.password-checklist {
+  list-style: none;
+  padding: 0;
+  margin: -10px 0 16px 2px;
+  font-size: 12px;
+}
+
+.password-checklist li {
+  color: var(--ink-muted);
+  margin-bottom: 3px;
+}
+
+.password-checklist li.met {
+  color: var(--real);
+}

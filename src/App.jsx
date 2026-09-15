@@ -73,6 +73,22 @@ function App() {
   // --- Menu state ---
   const [menuOpen, setMenuOpen] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  
+  // --- Setting page state ---
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordMessage, setPasswordMessage] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+
+  const getPasswordChecks = (pwd) => ({
+    length: pwd.length >= 8,
+    uppercase: /[A-Z]/.test(pwd),
+    number: /[0-9]/.test(pwd),
+    special: /[!@#$%^&*(),.?":{}|<>_\-+=]/.test(pwd),
+  });
 
   const handleAuth = async () => {
     if (!authUsername.trim() || !authPassword) return;
@@ -180,6 +196,43 @@ function App() {
       setError('Could not reach the server. Is the Flask API running?');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    setPasswordError('');
+    setPasswordMessage('');
+    if (!currentPassword || !newPassword) return;
+    setPasswordLoading(true);
+    try {
+      const response = await fetch(`${API_BASE}/change-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+      });
+      let data = {};
+      try {
+        data = await response.json();
+      } catch (e) {
+        data = {};
+      }
+      if (response.status === 401 && data.msg === 'Token has expired') {
+        handleLogout();
+        setAuthError('Your session expired — please log in again.');
+      } else if (!response.ok) {
+        setPasswordError(data.error || data.msg || 'Something went wrong');
+      } else {
+        setPasswordMessage('Password updated successfully.');
+        setCurrentPassword('');
+        setNewPassword('');
+      }
+    } catch (err) {
+      setPasswordError('Could not reach the server.');
+    } finally {
+      setPasswordLoading(false);
     }
   };
 
@@ -408,7 +461,20 @@ function App() {
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
-
+              {authMode === 'register' && authPassword && (
+                <ul className="password-checklist">
+                  {Object.entries({
+                    length: 'At least 8 characters',
+                    uppercase: 'One uppercase letter',
+                    number: 'One number',
+                    special: 'One special character (!@#$% etc.)',
+                  }).map(([key, label]) => (
+                    <li key={key} className={getPasswordChecks(authPassword)[key] ? 'met' : ''}>
+                      {getPasswordChecks(authPassword)[key] ? '✓' : '○'} {label}
+                    </li>
+                  ))}
+                </ul>
+              )}
               <button className="check-btn" onClick={handleAuth} disabled={authLoading}>
                 {authLoading ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Create Account'}
               </button>
@@ -472,6 +538,13 @@ function App() {
                     <ShieldCheck size={15} /> Admin
                   </button>
                 )}
+                <button
+                  className={page === 'settings' ? 'active' : ''}
+                  onClick={() => { setPage('settings'); setMenuOpen(false); }}
+                >
+                  <Lock size={15} /> Settings
+                </button>
+
                 <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
                   {theme === 'light' ? <Moon size={15} /> : <Sun size={15} />}
                   {theme === 'light' ? 'Dark mode' : 'Light mode'}
@@ -799,6 +872,70 @@ function App() {
                 )}
               </div>
             )}
+          </>
+        )}
+
+        {page === 'settings' && (
+          <>
+            <h2 className="content-title">Account Settings</h2>
+            <p className="subtitle content-subtitle">Change your password.</p>
+
+            <label className="field-label">Current Password</label>
+            <div className="input-with-icon">
+              <Lock size={16} className="input-icon" />
+              <input
+                type={showCurrentPassword ? 'text' : 'password'}
+                placeholder="Enter your current password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                className="toggle-password"
+                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+              >
+                {showCurrentPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+
+            <label className="field-label">New Password</label>
+            <div className="input-with-icon">
+              <Lock size={16} className="input-icon" />
+              <input
+                type={showNewPassword ? 'text' : 'password'}
+                placeholder="Enter a new password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                className="toggle-password"
+                onClick={() => setShowNewPassword(!showNewPassword)}
+              >
+                {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            {newPassword && (
+              <ul className="password-checklist">
+                {Object.entries({
+                  length: 'At least 8 characters',
+                  uppercase: 'One uppercase letter',
+                  number: 'One number',
+                  special: 'One special character (!@#$% etc.)',
+                }).map(([key, label]) => (
+                  <li key={key} className={getPasswordChecks(newPassword)[key] ? 'met' : ''}>
+                    {getPasswordChecks(newPassword)[key] ? '✓' : '○'} {label}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <button className="check-btn" onClick={handleChangePassword} disabled={passwordLoading}>
+              {passwordLoading ? 'Updating...' : 'Update Password'}
+            </button>
+
+            {passwordError && <p className="error">{passwordError}</p>}
+            {passwordMessage && <p className="success-message">{passwordMessage}</p>}
           </>
         )}
       </div>
