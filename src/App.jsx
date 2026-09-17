@@ -13,6 +13,7 @@ const API_BASE = import.meta.env.DEV
 function App() {
   const [token, setToken] = useState(localStorage.getItem('token') || '');
   const [username, setUsername] = useState(localStorage.getItem('username') || '');
+  const [name, setName] = useState(localStorage.getItem('name') || '');
   const [isSuperAdmin, setIsSuperAdmin] = useState(localStorage.getItem('isSuperAdmin') === 'true');
   const [role, setRole] = useState(localStorage.getItem('role') || 'user');
   const [page, setPage] = useState('checker'); // 'checker' | 'history'
@@ -28,6 +29,7 @@ function App() {
   const [authMode, setAuthMode] = useState('login'); // 'login' | 'register'
   const [authUsername, setAuthUsername] = useState('');
   const [authPassword, setAuthPassword] = useState('');
+  const [usernameAvailability, setUsernameAvailability] = useState(null); // null | 'checking' | 'available' | 'taken' | 'invalid'
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [loginRole, setLoginRole] = useState('user'); // 'user' | 'admin'
@@ -41,6 +43,8 @@ function App() {
   const [showPassword, setShowPassword] = useState(false);
   const [batchResults, setBatchResults] = useState(null);
   const [batchLoading, setBatchLoading] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState(null);
+  // shape: { message: string, onConfirm: function } | null
   const [error, setError] = useState('');
   const [retryCountdown, setRetryCountdown] = useState(0);
 
@@ -58,6 +62,59 @@ function App() {
     }, 1000);
     return () => clearInterval(timer);
   }, [retryCountdown]);
+
+  useEffect(() => {
+    if (page !== 'settings') {
+      setNameMessage('');
+      setNameError('');
+      setUsernameMessage('');
+      setUsernameError('');
+      setPasswordMessage('');
+      setPasswordError('');
+      setCurrentPassword('');
+      setNewPassword('');
+    }
+    if (page !== 'checker') {
+      setInputValue('');
+      setResult(null);
+      setBatchResults(null);
+      setError('');
+      setRetryCountdown(0);
+    }
+  }, [page]);
+
+  useEffect(() => {
+    setNameInput(name);
+    setUsernameInput(username);
+  }, [name, username]);
+
+  useEffect(() => {
+    setAuthUsername('');
+    setAuthPassword('');
+    setAuthError('');
+  }, [authMode]);
+
+  useEffect(() => {
+    if (authMode !== 'register' || !authUsername.trim()) {
+      setUsernameAvailability(null);
+      return;
+    }
+    setUsernameAvailability('checking');
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`${API_BASE}/check-username?username=${encodeURIComponent(authUsername.trim())}`);
+        const data = await res.json();
+        if (data.error) {
+          setUsernameAvailability('invalid');
+        } else {
+          setUsernameAvailability(data.available ? 'available' : 'taken');
+        }
+      } catch (e) {
+        setUsernameAvailability(null);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [authUsername, authMode]);
 
   // --- History state ---
   const [history, setHistory] = useState([]);
@@ -85,6 +142,35 @@ function App() {
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
+  const [nameInput, setNameInput] = useState(name);
+  const [usernameInput, setUsernameInput] = useState(username);
+  const [nameMessage, setNameMessage] = useState('');
+  const [nameError, setNameError] = useState('');
+  const [usernameMessage, setUsernameMessage] = useState('');
+  const [usernameError, setUsernameError] = useState('');
+  const [settingsUsernameAvailability, setSettingsUsernameAvailability] = useState(null);
+
+    useEffect(() => {
+    if (page !== 'settings' || !usernameInput.trim() || usernameInput.trim() === username) {
+      setSettingsUsernameAvailability(null);
+      return;
+    }
+    setSettingsUsernameAvailability('checking');
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`${API_BASE}/check-username?username=${encodeURIComponent(usernameInput.trim())}`);
+        const data = await res.json();
+        if (data.error) {
+          setSettingsUsernameAvailability('invalid');
+        } else {
+          setSettingsUsernameAvailability(data.available ? 'available' : 'taken');
+        }
+      } catch (e) {
+        setSettingsUsernameAvailability(null);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [usernameInput, page, username]);
 
   const getPasswordChecks = (pwd) => ({
     length: pwd.length >= 8,
@@ -105,7 +191,18 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: authUsername, password: authPassword }),
       });
-      const data = await response.json();
+      let data = {};
+      try {
+        data = await response.json();
+      } catch (e) {
+        data = {};
+      }
+
+      if (response.status === 429) {
+        setAuthError('Too many attempts in a short time — please wait a moment and try again.');
+        setAuthLoading(false);
+        return;
+      }
 
       if (!response.ok) {
         setAuthError(data.error || 'Something went wrong');
@@ -116,10 +213,12 @@ function App() {
         setUsername(data.username);
         setRole(data.role);
         setIsSuperAdmin(data.is_super_admin);
+        setName(data.name || '');
         localStorage.setItem('token', data.token);
         localStorage.setItem('username', data.username);
         localStorage.setItem('role', data.role);
         localStorage.setItem('isSuperAdmin', data.is_super_admin);
+        localStorage.setItem('name', data.name || '');
         setAuthUsername('');
         setAuthPassword('');
         if (data.role === 'admin' && loginRole === 'admin') {
@@ -136,10 +235,12 @@ function App() {
   const handleLogout = () => {
     setToken('');
     setUsername('');
+    setName('');
     setRole('user');
     setIsSuperAdmin(false);
     localStorage.removeItem('token');
     localStorage.removeItem('username');
+    localStorage.removeItem('name');
     localStorage.removeItem('role');
     localStorage.removeItem('isSuperAdmin');
     setResult(null);
@@ -285,6 +386,76 @@ function App() {
     }
   };
 
+  const handleChangeName = async () => {
+    setNameError('');
+    setNameMessage('');
+    try {
+      const response = await fetch(`${API_BASE}/change-name`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ name: nameInput }),
+      });
+      let data = {};
+      try { data = await response.json(); } catch (e) { data = {}; }
+
+      if (response.status === 401 || response.status === 422) {
+        handleLogout();
+        setAuthError('Your session expired — please log in again.');
+      } else if (!response.ok) {
+        setNameError(data.error || data.msg || 'Something went wrong');
+      } else {
+        setName(data.name || '');
+        localStorage.setItem('name', data.name || '');
+        setNameMessage('Name updated.');
+      }
+    } catch (err) {
+      setNameError('Could not reach the server.');
+    }
+  };
+
+  const submitUsernameChange = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/change-username`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ username: usernameInput }),
+      });
+      let data = {};
+      try { data = await response.json(); } catch (e) { data = {}; }
+
+      if (response.status === 401 || response.status === 422) {
+        handleLogout();
+        setAuthError('Your session expired — please log in again.');
+      } else if (!response.ok) {
+        setUsernameError(data.error || data.msg || 'Something went wrong');
+      } else {
+        setUsername(data.username);
+        localStorage.setItem('username', data.username);
+        setUsernameMessage('Username updated.');
+      }
+    } catch (err) {
+      setUsernameError('Could not reach the server.');
+    }
+  };
+
+  const handleChangeUsername = () => {
+    setUsernameError('');
+    setUsernameMessage('');
+
+    if (usernameInput.trim() === username) {
+      setUsernameError('That is already your username');
+      return;
+    }
+
+    setConfirmDialog({
+      message: `Change your username to "${usernameInput}"? You won't be able to change it again for 14 days.`,
+      onConfirm: () => {
+        setConfirmDialog(null);
+        submitUsernameChange();
+      },
+    });
+  };
+
   const loadAdminData = async () => {
     setAdminLoading(true);
     try {
@@ -329,14 +500,50 @@ function App() {
     }
   };
 
-  const handleDeleteUser = async (id) => {
-    if (!window.confirm('Delete this user and all their history? This cannot be undone.')) return;
+  const handleDeleteUser = (id) => {
+    setConfirmDialog({
+      message: 'Delete this user and all their history? This cannot be undone.',
+      onConfirm: () => {
+        setConfirmDialog(null);
+        submitDeleteUser(id);
+      },
+    });
+  };
+
+  const submitDeleteUser = async (id) => {
     try {
       await fetch(`${API_BASE}/admin/users/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` },
       });
       setAdminUsers((prev) => prev.filter((u) => u.id !== id));
+    } catch (err) {
+      // silent fail acceptable
+    }
+  };
+
+  const handleToggleSuspend = (id, currentlySuspended) => {
+    setConfirmDialog({
+      message: currentlySuspended
+        ? "Reactivate this user's account?"
+        : "Suspend this user? They won't be able to log in until reactivated.",
+      onConfirm: () => {
+        setConfirmDialog(null);
+        submitToggleSuspend(id);
+      },
+    });
+  };
+
+  const submitToggleSuspend = async (id) => {
+    try {
+      const res = await fetch(`${API_BASE}/admin/users/${id}/suspend`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAdminUsers((prev) => prev.map((u) => (u.id === id ? { ...u, is_suspended: data.is_suspended } : u)));
+      }
     } catch (err) {
       // silent fail acceptable
     }
@@ -494,6 +701,14 @@ function App() {
                   onChange={(e) => setAuthUsername(e.target.value)}
                 />
               </div>
+              {authMode === 'register' && usernameAvailability && (
+                <p className={`username-status ${usernameAvailability}`}>
+                  {usernameAvailability === 'checking' && 'Checking availability...'}
+                  {usernameAvailability === 'available' && '✓ Username available'}
+                  {usernameAvailability === 'taken' && '✕ Username already taken'}
+                  {usernameAvailability === 'invalid' && '✕ 3-20 characters: letters, numbers, _ .'}
+                </p>
+              )}
 
               <label className="field-label">Password</label>
               <div className="input-with-icon">
@@ -563,13 +778,18 @@ function App() {
         <div className="profile-menu-wrapper">
           <button className="profile-btn" onClick={() => setMenuOpen(!menuOpen)}>
             <span className="avatar-circle"><User size={16} /></span>
-            <span className="profile-name">{username}</span>
+            <span className="profile-name">{name || username}</span>
           </button>
 
           {menuOpen && (
             <>
               <div className="menu-overlay" onClick={() => setMenuOpen(false)} />
               <div className="profile-dropdown">
+                <div className="dropdown-identity">
+                  <p className="dropdown-name">{name || username}</p>
+                  <p className="dropdown-username">@{username}</p>
+                </div>
+                <hr className="dropdown-divider" />
                 <button
                   className={page === 'checker' ? 'active' : ''}
                   onClick={() => { setPage('checker'); setMenuOpen(false); }}
@@ -719,7 +939,8 @@ function App() {
                 )}
               </div>
             )}
-                        {batchLoading && (
+
+            {batchLoading && (
               <div className="skeleton-list">
                 {[1, 2, 3].map((i) => (
                   <div key={i} className="skeleton-card">
@@ -882,6 +1103,7 @@ function App() {
                         <th>Role</th>
                         <th>Checks</th>
                         <th>Joined</th>
+                        <th>Status</th>
                         <th></th>
                       </tr>
                     </thead>
@@ -910,8 +1132,19 @@ function App() {
                             <td>{u.check_count}</td>
                             <td>{new Date(u.created_at).toLocaleDateString()}</td>
                             <td>
+                              {u.is_suspended && <span className="suspended-badge">Suspended</span>}
+                            </td>
+                            <td>
                               {!u.is_super_admin && (
-                                <button className="delete-btn" onClick={() => handleDeleteUser(u.id)}>Remove</button>
+                                <div className="admin-actions">
+                                  <button
+                                    className="suspend-btn"
+                                    onClick={() => handleToggleSuspend(u.id, u.is_suspended)}
+                                  >
+                                    {u.is_suspended ? 'Reactivate' : 'Suspend'}
+                                  </button>
+                                  <button className="delete-btn" onClick={() => handleDeleteUser(u.id)}>Remove</button>
+                                </div>
                               )}
                             </td>
                           </tr>
@@ -1032,7 +1265,42 @@ function App() {
         {page === 'settings' && (
           <>
             <h2 className="content-title">Account Settings</h2>
-            <p className="subtitle content-subtitle">Change your password.</p>
+            <p className="subtitle content-subtitle">Manage your name, username, and password.</p>
+
+            <label className="field-label">Display Name</label>
+            <input
+              type="text"
+              placeholder="Any name you like — emojis welcome ✨"
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+            />
+            <button className="check-btn" onClick={handleChangeName}>Update Name</button>
+            {nameError && <p className="error">{nameError}</p>}
+            {nameMessage && <p className="success-message">{nameMessage}</p>}
+
+            <hr className="dropdown-divider" style={{ margin: '24px 0' }} />
+
+            <label className="field-label">Username</label>
+            <input
+              type="text"
+              placeholder="3-20 characters: letters, numbers, _ ."
+              value={usernameInput}
+              onChange={(e) => setUsernameInput(e.target.value)}
+            />
+            {settingsUsernameAvailability && (
+              <p className={`username-status ${settingsUsernameAvailability}`}>
+                {settingsUsernameAvailability === 'checking' && 'Checking availability...'}
+                {settingsUsernameAvailability === 'available' && '✓ Username available'}
+                {settingsUsernameAvailability === 'taken' && '✕ Username already taken'}
+                {settingsUsernameAvailability === 'invalid' && '✕ 3-20 characters: letters, numbers, _ .'}
+              </p>
+            )}
+            <p className="password-hint">Can be changed once every 14 days</p>
+            <button className="check-btn" onClick={handleChangeUsername}>Update Username</button>
+            {usernameError && <p className="error">{usernameError}</p>}
+            {usernameMessage && <p className="success-message">{usernameMessage}</p>}
+
+            <hr className="dropdown-divider" style={{ margin: '24px 0' }} />
 
             <label className="field-label">Current Password</label>
             <div className="input-with-icon">
@@ -1096,6 +1364,18 @@ function App() {
       <footer className="app-footer">
         Built by Alphonce Musyoka (Alli Jnr) — Multimedia University of Kenya
       </footer>
+
+      {confirmDialog && (
+        <div className="confirm-overlay">
+          <div className="confirm-dialog">
+            <p>{confirmDialog.message}</p>
+            <div className="confirm-actions">
+              <button className="confirm-cancel" onClick={() => setConfirmDialog(null)}>Cancel</button>
+              <button className="confirm-ok" onClick={confirmDialog.onConfirm}>Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
