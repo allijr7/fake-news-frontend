@@ -3,6 +3,7 @@ import './App.css';
 import { User, Lock, ShieldCheck, History as HistoryIcon, Sparkles, FileText, Link2, Search, LogOut, Eye, EyeOff, Moon, Sun } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 
 const API_BASE = import.meta.env.DEV
@@ -70,7 +71,7 @@ function App() {
   const [adminTab, setAdminTab] = useState('users');
   const [adminSearch, setAdminSearch] = useState('');
   const [adminScrolled, setAdminScrolled] = useState(false); // tracks scroll position for the floating "Top" button
-
+  const [analytics, setAnalytics] = useState(null);
 
   // --- Menu state ---
   const [menuOpen, setMenuOpen] = useState(false);
@@ -287,9 +288,10 @@ function App() {
   const loadAdminData = async () => {
     setAdminLoading(true);
     try {
-      const [usersRes, checksRes] = await Promise.all([
+      const [usersRes, checksRes, analyticsRes] = await Promise.all([
         fetch(`${API_BASE}/admin/users`, { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch(`${API_BASE}/admin/checks`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`${API_BASE}/admin/analytics`, { headers: { 'Authorization': `Bearer ${token}` } }),
       ]);
       if (usersRes.status === 401 || usersRes.status === 422) {
         handleLogout();
@@ -298,8 +300,10 @@ function App() {
       }
       const usersData = await usersRes.json();
       const checksData = await checksRes.json();
+      const analyticsData = await analyticsRes.json();
       if (usersRes.ok) setAdminUsers(usersData);
       if (checksRes.ok) setAdminChecks(checksData);
+      if (analyticsRes.ok) setAnalytics(analyticsData);
     } catch (err) {
       // silent fail acceptable
     } finally {
@@ -839,6 +843,9 @@ function App() {
               <button className={adminTab === 'checks' ? 'active' : ''} onClick={() => setAdminTab('checks')}>
                 Activity
               </button>
+              <button className={adminTab === 'analytics' ? 'active' : ''} onClick={() => setAdminTab('analytics')}>
+                Analytics
+              </button>
             </div>
 
             {adminLoading && (
@@ -968,6 +975,55 @@ function App() {
                     ↑ Top
                   </button>
                 )}
+              </div>
+            )}
+
+            {!adminLoading && adminTab === 'analytics' && analytics && (
+              <div className="analytics-view">
+                <div className="stat-cards">
+                  <div className="stat-card">
+                    <p className="stat-number">{analytics.total_users}</p>
+                    <p className="stat-label">Total Users</p>
+                  </div>
+                  <div className="stat-card">
+                    <p className="stat-number">{analytics.total_checks}</p>
+                    <p className="stat-label">Total Checks</p>
+                  </div>
+                </div>
+
+                <h3 className="chart-title">Checks over the last 14 days</h3>
+                <ResponsiveContainer width="100%" height={220}>
+                  <LineChart data={analytics.daily}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border-soft)" />
+                    <XAxis dataKey="day" tick={{ fontSize: 11 }} stroke="var(--ink-muted)" />
+                    <YAxis tick={{ fontSize: 11 }} stroke="var(--ink-muted)" allowDecimals={false} />
+                    <Tooltip contentStyle={{ background: 'var(--card-bg)', border: '1px solid var(--border)', fontSize: 12 }} />
+                    <Line type="monotone" dataKey="count" stroke="var(--accent)" strokeWidth={2} dot={{ r: 3 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+
+                <h3 className="chart-title">Verdict breakdown</h3>
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie
+                      data={analytics.by_label}
+                      dataKey="count"
+                      nameKey="label"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      label={(entry) => `${entry.label}: ${entry.count}`}
+                    >
+                      {analytics.by_label.map((entry, i) => (
+                        <Cell key={i} fill={
+                          entry.label === 'Real' ? '#1F6F54' :
+                          entry.label === 'Fake' ? '#9C2B1F' : '#8A6E4B'
+                        } />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={{ background: 'var(--card-bg)', border: '1px solid var(--border)', fontSize: 12 }} />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
             )}
           </>
