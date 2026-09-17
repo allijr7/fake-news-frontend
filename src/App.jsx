@@ -38,6 +38,8 @@ function App() {
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [batchResults, setBatchResults] = useState(null);
+  const [batchLoading, setBatchLoading] = useState(false);
   const [error, setError] = useState('');
   const [retryCountdown, setRetryCountdown] = useState(0);
 
@@ -196,6 +198,52 @@ function App() {
       setError('Could not reach the server. Is the Flask API running?');
     } finally {
       setLoading(false);
+    }
+  };
+
+    const handleBatchCheck = async () => {
+    const urls = inputValue.split('\n').map((u) => u.trim()).filter(Boolean);
+    if (urls.length === 0) return;
+    if (urls.length > 10) {
+      setError('Maximum 10 URLs per batch.');
+      return;
+    }
+
+    setBatchLoading(true);
+    setBatchResults(null);
+    setError('');
+
+    try {
+      const response = await fetch(`${API_BASE}/predict-batch`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ urls }),
+      });
+
+      let data = {};
+      try {
+        data = await response.json();
+      } catch (e) {
+        data = {};
+      }
+
+      if (response.status === 401 || response.status === 422) {
+        handleLogout();
+        setAuthError('Your session expired — please log in again.');
+      } else if (response.status === 429) {
+        setError('Too many batch checks in a short time — please wait a moment.');
+      } else if (!response.ok) {
+        setError(data.error || 'Something went wrong');
+      } else {
+        setBatchResults(data.results);
+      }
+    } catch (err) {
+      setError('Could not reach the server. Is the Flask API running?');
+    } finally {
+      setBatchLoading(false);
     }
   };
 
@@ -572,16 +620,21 @@ function App() {
               <button className={inputType === 'url' ? 'active' : ''} onClick={() => setInputType('url')}>
                 <Link2 size={14} /> URL
               </button>
+              <button className={inputType === 'batch' ? 'active' : ''} onClick={() => setInputType('batch')}>
+                <Search size={14} /> Batch
+              </button>
             </div>
 
-            {inputType === 'text' ? (
+            {inputType === 'text' && (
               <textarea
                 placeholder="Paste article text here..."
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 rows={8}
               />
-            ) : (
+            )}
+
+            {inputType === 'url' && (
               <input
                 type="text"
                 placeholder="Paste article URL here..."
@@ -590,8 +643,23 @@ function App() {
               />
             )}
 
-            <button className="check-btn" onClick={handleCheck} disabled={loading}>
-              {loading ? 'Checking...' : <><Search size={15} /> Check the record</>}
+            {inputType === 'batch' && (
+              <textarea
+                placeholder="Paste up to 10 URLs, one per line..."
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                rows={8}
+              />
+            )}
+
+            <button
+              className="check-btn"
+              onClick={inputType === 'batch' ? handleBatchCheck : handleCheck}
+              disabled={inputType === 'batch' ? batchLoading : loading}
+            >
+              {inputType === 'batch'
+                ? (batchLoading ? 'Checking batch...' : <><Search size={15} /> Check All</>)
+                : (loading ? 'Checking...' : <><Search size={15} /> Check the record</>)}
             </button>
 
             {loading && (
@@ -645,6 +713,36 @@ function App() {
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+                        {batchLoading && (
+              <div className="skeleton-list">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="skeleton-card">
+                    <div className="skeleton-line skeleton-stamp"></div>
+                    <div className="skeleton-line skeleton-text"></div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {batchResults && (
+              <div className="batch-results">
+                {batchResults.map((item, i) => (
+                  <div key={i} className={`batch-item ${item.error ? 'error-item' : item.label?.toLowerCase()}`}>
+                    <p className="batch-url">{item.url}</p>
+                    {item.error ? (
+                      <p className="batch-error">{item.error}</p>
+                    ) : (
+                      <>
+                        <span className={`mini-stamp ${item.label.toLowerCase()}`}>
+                          {item.label === 'Real' ? 'Verified' : item.label === 'Fake' ? 'Flagged' : 'Uncertain'}
+                        </span>
+                        <span className="batch-confidence">{item.confidence}%</span>
+                      </>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
           </>

@@ -1025,3 +1025,49 @@ textarea:focus, input:focus {
 .password-checklist li.met {
   color: var(--real);
 }
+
+.batch-results {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.batch-item {
+  background: var(--card-bg);
+  border: 1.5px solid var(--border-soft);
+  border-radius: 4px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.batch-item.real { border-color: var(--real); }
+.batch-item.fake { border-color: var(--fake); }
+.batch-item.uncertain { border-color: var(--uncertain); }
+.batch-item.error-item { border-color: var(--ink-muted); }
+
+.batch-url {
+  font-size: 12px;
+  color: var(--ink-muted);
+  flex: 1;
+  min-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin: 0 !important;
+}
+
+.batch-confidence {
+  font-size: 12px;
+  color: var(--ink-muted);
+}
+
+.batch-error {
+  font-size: 12px;
+  color: var(--fake);
+  margin: 0 !important;
+}
