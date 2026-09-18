@@ -1235,3 +1235,111 @@ textarea:focus, input:focus {
   text-transform: uppercase;
   font-weight: 600;
 }
+
+.faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.faq-item {
+  border-left: 2px solid var(--border-soft);
+  padding-left: 14px;
+}
+
+.faq-question {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ink);
+  margin: 0 0 4px !important;
+}
+
+.faq-answer {
+  font-size: 13px;
+  color: var(--ink-muted);
+  margin: 0 !important;
+  line-height: 1.5;
+}
+
+.appeal-box {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.badge-count {
+  background: var(--fake);
+  color: white;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  margin-left: 4px;
+}
+
+.messages-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.message-item {
+  background: var(--card-bg);
+  border: 1.5px solid var(--border-soft);
+  border-radius: 4px;
+  padding: 14px 16px;
+}
+
+.message-item.pending {
+  border-color: var(--uncertain);
+}
+
+.message-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.type-badge {
+  font-size: 11px;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.type-badge.appeal {
+  background: var(--fake);
+  color: white;
+}
+
+.type-badge.contact {
+  background: var(--hover-bg);
+  color: var(--ink);
+}
+
+.message-text {
+  font-size: 13px;
+  color: var(--ink);
+  margin: 0 0 10px !important;
+}
+
+.message-response {
+  font-size: 13px;
+  color: var(--ink-muted);
+  background: var(--hover-bg);
+  padding: 8px 10px;
+  border-radius: 4px;
+  margin: 0 0 10px !important;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ink);
+  margin: 12px 0;
+}

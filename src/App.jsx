@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import './App.css';
-import { User, Lock, ShieldCheck, History as HistoryIcon, Sparkles, FileText, Link2, Search, LogOut, Eye, EyeOff, Moon, Sun } from 'lucide-react';
+import { User, Lock, ShieldCheck, History as HistoryIcon, Sparkles, FileText, Link2, Search, LogOut, Eye, EyeOff, Moon, Sun, HelpCircle} from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -33,6 +33,10 @@ function App() {
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [loginRole, setLoginRole] = useState('user'); // 'user' | 'admin'
+  const [showAppealForm, setShowAppealForm] = useState(false);
+  const [appealMessage, setAppealMessage] = useState('');
+  const [appealSent, setAppealSent] = useState(false);
+  const [appealError, setAppealError] = useState('');
 
   // --- Checker state ---
   const [inputType, setInputType] = useState('text');
@@ -81,6 +85,11 @@ function App() {
       setError('');
       setRetryCountdown(0);
     }
+    if (page !== 'help') {
+      setContactMessage('');
+      setContactSent(false);
+      setContactError('');
+    }
   }, [page]);
 
   useEffect(() => {
@@ -92,6 +101,10 @@ function App() {
     setAuthUsername('');
     setAuthPassword('');
     setAuthError('');
+    setShowAppealForm(false);
+    setAppealMessage('');
+    setAppealSent(false);
+    setAppealError('');
   }, [authMode]);
 
   useEffect(() => {
@@ -129,11 +142,20 @@ function App() {
   const [adminSearch, setAdminSearch] = useState('');
   const [adminScrolled, setAdminScrolled] = useState(false); // tracks scroll position for the floating "Top" button
   const [analytics, setAnalytics] = useState(null);
+  const [adminMessages, setAdminMessages] = useState([]);
+  const [respondingTo, setRespondingTo] = useState(null);
+  const [responseText, setResponseText] = useState('');
+  const [responseReactivate, setResponseReactivate] = useState(false);
 
   // --- Menu state ---
   const [menuOpen, setMenuOpen] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   
+  // --- Contact state ---
+  const [contactMessage, setContactMessage] = useState('');
+  const [contactSent, setContactSent] = useState(false);
+  const [contactError, setContactError] = useState('');
+
   // --- Setting page state ---
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -206,6 +228,9 @@ function App() {
 
       if (!response.ok) {
         setAuthError(data.error || 'Something went wrong');
+        if (data.error && data.error.toLowerCase().includes('suspended')) {
+          setShowAppealForm(true);
+        }
       } else if (authMode === 'login' && loginRole === 'admin' && data.role !== 'admin') {
         setAuthError('This account does not have admin access.');
       } else {
@@ -459,10 +484,11 @@ function App() {
   const loadAdminData = async () => {
     setAdminLoading(true);
     try {
-      const [usersRes, checksRes, analyticsRes] = await Promise.all([
+      const [usersRes, checksRes, analyticsRes, messagesRes] = await Promise.all([
         fetch(`${API_BASE}/admin/users`, { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch(`${API_BASE}/admin/checks`, { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch(`${API_BASE}/admin/analytics`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`${API_BASE}/admin/messages`, { headers: { 'Authorization': `Bearer ${token}` } }),
       ]);
       if (usersRes.status === 401 || usersRes.status === 422) {
         handleLogout();
@@ -472,9 +498,11 @@ function App() {
       const usersData = await usersRes.json();
       const checksData = await checksRes.json();
       const analyticsData = await analyticsRes.json();
+      const messagesData = await messagesRes.json();
       if (usersRes.ok) setAdminUsers(usersData);
       if (checksRes.ok) setAdminChecks(checksData);
       if (analyticsRes.ok) setAnalytics(analyticsData);
+      if (messagesRes.ok) setAdminMessages(messagesData);
     } catch (err) {
       // silent fail acceptable
     } finally {
@@ -546,6 +574,84 @@ function App() {
       }
     } catch (err) {
       // silent fail acceptable
+    }
+  };
+
+  const handleRespond = (message) => {
+    setRespondingTo(message);
+    setResponseText('');
+    setResponseReactivate(false);
+  };
+
+  const submitResponse = async () => {
+    if (!responseText.trim()) return;
+    try {
+      const res = await fetch(`${API_BASE}/admin/messages/${respondingTo.id}/respond`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ response: responseText, reactivate: responseReactivate }),
+      });
+      if (res.ok) {
+        setAdminMessages((prev) => prev.map((m) =>
+          m.id === respondingTo.id ? { ...m, status: 'resolved', admin_response: responseText } : m
+        ));
+        if (responseReactivate) {
+          setAdminUsers((prev) => prev.map((u) =>
+            u.username === respondingTo.username ? { ...u, is_suspended: false } : u
+          ));
+        }
+        setRespondingTo(null);
+      }
+    } catch (err) {
+      // silent fail acceptable
+    }
+  };
+
+  const handleSubmitContact = async () => {
+    setContactError('');
+    if (!contactMessage.trim()) return;
+    try {
+      const response = await fetch(`${API_BASE}/contact`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ message: contactMessage }),
+      });
+      let data = {};
+      try { data = await response.json(); } catch (e) { data = {}; }
+
+      if (response.status === 401 || response.status === 422) {
+        handleLogout();
+        setAuthError('Your session expired — please log in again.');
+      } else if (!response.ok) {
+        setContactError(data.error || 'Something went wrong');
+      } else {
+        setContactSent(true);
+        setContactMessage('');
+      }
+    } catch (err) {
+      setContactError('Could not reach the server.');
+    }
+  };
+
+  const handleSubmitAppeal = async () => {
+    setAppealError('');
+    if (!appealMessage.trim()) return;
+    try {
+      const response = await fetch(`${API_BASE}/appeal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: authUsername, message: appealMessage }),
+      });
+      let data = {};
+      try { data = await response.json(); } catch (e) { data = {}; }
+
+      if (!response.ok) {
+        setAppealError(data.error || 'Something went wrong');
+      } else {
+        setAppealSent(true);
+      }
+    } catch (err) {
+      setAppealError('Could not reach the server.');
     }
   };
 
@@ -748,6 +854,26 @@ function App() {
 
               {authError && <p className="error">{authError}</p>}
 
+              {showAppealForm && (
+                <div className="appeal-box">
+                  {appealSent ? (
+                    <p className="success-message">Your appeal has been submitted. An admin will review it.</p>
+                  ) : (
+                    <>
+                      <p className="password-hint">Believe this is a mistake? Submit an appeal below.</p>
+                      <textarea
+                        placeholder="Explain why your account should be reactivated..."
+                        value={appealMessage}
+                        onChange={(e) => setAppealMessage(e.target.value)}
+                        rows={3}
+                      />
+                      <button className="check-btn" onClick={handleSubmitAppeal}>Submit Appeal</button>
+                      {appealError && <p className="error">{appealError}</p>}
+                    </>
+                  )}
+                </div>
+              )}
+
               <p className="auth-switch">
                 {authMode === 'login' ? "Don't have an account? " : 'Already have an account? '}
                 <button
@@ -815,6 +941,13 @@ function App() {
                   onClick={() => { setPage('settings'); setMenuOpen(false); }}
                 >
                   <Lock size={15} /> Settings
+                </button>
+                 
+                <button
+                  className={page === 'help' ? 'active' : ''}
+                  onClick={() => { setPage('help'); setMenuOpen(false); }}
+                >
+                  <HelpCircle size={15} /> Help
                 </button>
 
                 <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
@@ -1067,6 +1200,11 @@ function App() {
               <button className={adminTab === 'analytics' ? 'active' : ''} onClick={() => setAdminTab('analytics')}>
                 Analytics
               </button>
+              <button className={adminTab === 'messages' ? 'active' : ''} onClick={() => setAdminTab('messages')}>
+                Messages {adminMessages.filter(m => m.status === 'pending').length > 0 && (
+                  <span className="badge-count">{adminMessages.filter(m => m.status === 'pending').length}</span>
+                )}
+              </button>
             </div>
 
             {adminLoading && (
@@ -1259,6 +1397,27 @@ function App() {
                 </ResponsiveContainer>
               </div>
             )}
+
+            {!adminLoading && adminTab === 'messages' && (
+              <div className="messages-list">
+                {adminMessages.length === 0 && <p className="subtitle">No messages yet.</p>}
+                {adminMessages.map((m) => (
+                  <div key={m.id} className={`message-item ${m.status}`}>
+                    <div className="message-header">
+                      <span className={`type-badge ${m.type}`}>{m.type === 'appeal' ? 'Appeal' : 'Contact'}</span>
+                      <span className="history-date">@{m.username} · {new Date(m.created_at).toLocaleString()}</span>
+                    </div>
+                    <p className="message-text">{m.message}</p>
+                    {m.admin_response && (
+                      <p className="message-response"><strong>Your response:</strong> {m.admin_response}</p>
+                    )}
+                    {m.status === 'pending' && (
+                      <button className="export-btn" onClick={() => handleRespond(m)}>Respond</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </>
         )}
 
@@ -1360,7 +1519,66 @@ function App() {
             {passwordMessage && <p className="success-message">{passwordMessage}</p>}
           </>
         )}
+
+        {page === 'help' && (
+          <>
+            <h2 className="content-title">Help & Support</h2>
+            <p className="subtitle content-subtitle">Common questions and how to reach us.</p>
+
+            <div className="faq-list">
+              <div className="faq-item">
+                <p className="faq-question">How does the credibility check work?</p>
+                <p className="faq-answer">
+                  We analyze the text of an article using a machine learning model trained on thousands of
+                  real and fake news examples. It looks for language patterns associated with misinformation
+                  and returns a verdict with a confidence score.
+                </p>
+              </div>
+              <div className="faq-item">
+                <p className="faq-question">Why was a real article flagged as fake (or vice versa)?</p>
+                <p className="faq-answer">
+                  No model is perfect. Our system can be less accurate on topics, writing styles, or sources
+                  it wasn't trained on. Always use the verdict as one signal, not a final judgment — and check
+                  the highlighted key words for insight into why it made that call.
+                </p>
+              </div>
+              <div className="faq-item">
+                <p className="faq-question">Why couldn't it check my URL?</p>
+                <p className="faq-answer">
+                  Some pages (slideshows, JavaScript-heavy sites, paywalled content) can't be read properly.
+                  Try pasting the article text directly instead.
+                </p>
+              </div>
+              <div className="faq-item">
+                <p className="faq-question">Is my check history private?</p>
+                <p className="faq-answer">
+                  Yes — only you can see your own history. Admins can see system-wide activity for moderation
+                  purposes, but not associate it with anything beyond your username.
+                </p>
+              </div>
+            </div>
+
+            <hr className="dropdown-divider" style={{ margin: '24px 0' }} />
+
+            <h3 className="chart-title">Still need help?</h3>
+            {contactSent ? (
+              <p className="success-message">Your message has been sent. We'll get back to you soon.</p>
+            ) : (
+              <>
+                <textarea
+                  placeholder="Describe your issue or question..."
+                  value={contactMessage}
+                  onChange={(e) => setContactMessage(e.target.value)}
+                  rows={5}
+                />
+                <button className="check-btn" onClick={handleSubmitContact}>Send Message</button>
+                {contactError && <p className="error">{contactError}</p>}
+              </>
+            )}
+          </>
+        )}
       </div>
+
       <footer className="app-footer">
         Built by Alphonce Musyoka (Alli Jnr) — Multimedia University of Kenya
       </footer>
@@ -1372,6 +1590,35 @@ function App() {
             <div className="confirm-actions">
               <button className="confirm-cancel" onClick={() => setConfirmDialog(null)}>Cancel</button>
               <button className="confirm-ok" onClick={confirmDialog.onConfirm}>Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {respondingTo && (
+        <div className="confirm-overlay">
+          <div className="confirm-dialog">
+            <p><strong>Replying to @{respondingTo.username}</strong></p>
+            <p className="message-text">{respondingTo.message}</p>
+            <textarea
+              placeholder="Write your response..."
+              value={responseText}
+              onChange={(e) => setResponseText(e.target.value)}
+              rows={4}
+            />
+            {respondingTo.type === 'appeal' && (
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={responseReactivate}
+                  onChange={(e) => setResponseReactivate(e.target.checked)}
+                />
+                Reactivate this account
+              </label>
+            )}
+            <div className="confirm-actions">
+              <button className="confirm-cancel" onClick={() => setRespondingTo(null)}>Cancel</button>
+              <button className="confirm-ok" onClick={submitResponse} style={{ background: 'var(--real)' }}>Send Response</button>
             </div>
           </div>
         </div>
