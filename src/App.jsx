@@ -146,6 +146,10 @@ function App() {
   const [respondingTo, setRespondingTo] = useState(null);
   const [responseText, setResponseText] = useState('');
   const [responseReactivate, setResponseReactivate] = useState(false);
+  const [auditLog, setAuditLog] = useState([]);
+  const [viewingUser, setViewingUser] = useState(null);
+  const [userHistory, setUserHistory] = useState([]);
+  const [userHistoryLoading, setUserHistoryLoading] = useState(false);
 
   // --- Menu state ---
   const [menuOpen, setMenuOpen] = useState(false);
@@ -484,11 +488,12 @@ function App() {
   const loadAdminData = async () => {
     setAdminLoading(true);
     try {
-      const [usersRes, checksRes, analyticsRes, messagesRes] = await Promise.all([
+      const [usersRes, checksRes, analyticsRes, messagesRes, auditRes] = await Promise.all([
         fetch(`${API_BASE}/admin/users`, { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch(`${API_BASE}/admin/checks`, { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch(`${API_BASE}/admin/analytics`, { headers: { 'Authorization': `Bearer ${token}` } }),
         fetch(`${API_BASE}/admin/messages`, { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch(`${API_BASE}/admin/audit-log`, { headers: { 'Authorization': `Bearer ${token}` } }),
       ]);
       if (usersRes.status === 401 || usersRes.status === 422) {
         handleLogout();
@@ -499,10 +504,12 @@ function App() {
       const checksData = await checksRes.json();
       const analyticsData = await analyticsRes.json();
       const messagesData = await messagesRes.json();
+      const auditData = await auditRes.json();
       if (usersRes.ok) setAdminUsers(usersData);
       if (checksRes.ok) setAdminChecks(checksData);
       if (analyticsRes.ok) setAnalytics(analyticsData);
       if (messagesRes.ok) setAdminMessages(messagesData);
+      if (auditRes.ok) setAuditLog(auditData);
     } catch (err) {
       // silent fail acceptable
     } finally {
@@ -525,6 +532,22 @@ function App() {
       }
     } catch (err) {
       // silent fail acceptable
+    }
+  };
+  
+  const handleViewUser = async (user) => {
+    setViewingUser(user);
+    setUserHistoryLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/admin/users/${user.id}/history`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) setUserHistory(data);
+    } catch (err) {
+      // silent fail acceptable
+    } finally {
+      setUserHistoryLoading(false);
     }
   };
 
@@ -1200,6 +1223,9 @@ function App() {
               <button className={adminTab === 'analytics' ? 'active' : ''} onClick={() => setAdminTab('analytics')}>
                 Analytics
               </button>
+              <button className={adminTab === 'audit' ? 'active' : ''} onClick={() => setAdminTab('audit')}>
+                Audit Log
+              </button>
               <button className={adminTab === 'messages' ? 'active' : ''} onClick={() => setAdminTab('messages')}>
                 Messages {adminMessages.filter(m => m.status === 'pending').length > 0 && (
                   <span className="badge-count">{adminMessages.filter(m => m.status === 'pending').length}</span>
@@ -1250,7 +1276,9 @@ function App() {
                         .filter((u) => u.username.toLowerCase().includes(adminSearch.toLowerCase()))
                         .map((u) => (
                           <tr key={u.id}>
-                            <td>{u.username}</td>
+                            <td>
+                              <button className="user-link" onClick={() => handleViewUser(u)}>{u.username}</button>
+                            </td>
                             <td>
                               {isSuperAdmin && !u.is_super_admin ? (
                                 <select
@@ -1414,6 +1442,19 @@ function App() {
                     {m.status === 'pending' && (
                       <button className="export-btn" onClick={() => handleRespond(m)}>Respond</button>
                     )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!adminLoading && adminTab === 'audit' && (
+              <div className="audit-list">
+                {auditLog.length === 0 && <p className="subtitle">No admin actions recorded yet.</p>}
+                {auditLog.map((log) => (
+                  <div key={log.id} className="audit-item">
+                    <span className={`type-badge action-${log.action}`}>{log.action.replace('_', ' ')}</span>
+                    <p className="audit-details">{log.details}</p>
+                    <span className="history-date">{new Date(log.created_at).toLocaleString()}</span>
                   </div>
                 ))}
               </div>
@@ -1620,6 +1661,33 @@ function App() {
               <button className="confirm-cancel" onClick={() => setRespondingTo(null)}>Cancel</button>
               <button className="confirm-ok" onClick={submitResponse} style={{ background: 'var(--real)' }}>Send Response</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {viewingUser && (
+        <div className="confirm-overlay">
+          <div className="confirm-dialog user-history-dialog">
+            <div className="user-history-header">
+              <p><strong>@{viewingUser.username}</strong>'s activity</p>
+              <button className="confirm-cancel" onClick={() => setViewingUser(null)}>Close</button>
+            </div>
+            {userHistoryLoading && <div className="spinner" />}
+            {!userHistoryLoading && userHistory.length === 0 && (
+              <p className="subtitle">No checks yet.</p>
+            )}
+            {!userHistoryLoading && userHistory.map((item) => (
+              <div key={item.id} className={`history-item ${item.label.toLowerCase()}`}>
+                <div className="history-item-header">
+                  <span className={`mini-stamp ${item.label.toLowerCase()}`}>
+                    {item.label === 'Real' ? 'Verified' : item.label === 'Fake' ? 'Flagged' : 'Uncertain'}
+                  </span>
+                  <span className="history-date">{new Date(item.checked_at).toLocaleString()}</span>
+                </div>
+                <p className="preview">"{item.text_preview}..."</p>
+                <p className="history-confidence">Confidence: {item.confidence}%</p>
+              </div>
+            ))}
           </div>
         </div>
       )}
