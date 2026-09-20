@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import './App.css';
-import { User, Lock, ShieldCheck, History as HistoryIcon, Sparkles, FileText, Link2, Search, LogOut, Eye, EyeOff, Moon, Sun, HelpCircle} from 'lucide-react';
+import { User, Lock, ShieldCheck, History as HistoryIcon, Sparkles, FileText, Link2, Search, LogOut, Eye, EyeOff, Moon, Sun, HelpCircle, Clock, LayoutDashboard, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Users2, Activity, BarChart3, ScrollText, Inbox, Menu } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -17,12 +17,18 @@ function App() {
   const [isSuperAdmin, setIsSuperAdmin] = useState(localStorage.getItem('isSuperAdmin') === 'true');
   const [role, setRole] = useState(localStorage.getItem('role') || 'user');
   const [page, setPage] = useState('checker'); // 'checker' | 'history'
+  const [loginTime, setLoginTime] = useState(localStorage.getItem('loginTime') || '');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(localStorage.getItem('sidebarCollapsed') === 'true');
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
 
   useEffect(() => {
     document.body.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
   }, [theme]);
+  
+  useEffect(() => {
+    localStorage.setItem('sidebarCollapsed', sidebarCollapsed);
+  }, [sidebarCollapsed]);
 
 
   // --- Auth form state ---
@@ -93,6 +99,10 @@ function App() {
   }, [page]);
 
   useEffect(() => {
+    if (page === 'admin') setAdminMenuOpen(true);
+  }, [page]);
+
+  useEffect(() => {
     setNameInput(name);
     setUsernameInput(username);
   }, [name, username]);
@@ -128,6 +138,7 @@ function App() {
     }, 500);
     return () => clearTimeout(timer);
   }, [authUsername, authMode]);
+  
 
   // --- History state ---
   const [history, setHistory] = useState([]);
@@ -152,9 +163,10 @@ function App() {
   const [userHistoryLoading, setUserHistoryLoading] = useState(false);
 
   // --- Menu state ---
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [adminMenuOpen, setAdminMenuOpen] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
-  
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   // --- Contact state ---
   const [contactMessage, setContactMessage] = useState('');
   const [contactSent, setContactSent] = useState(false);
@@ -243,11 +255,13 @@ function App() {
         setRole(data.role);
         setIsSuperAdmin(data.is_super_admin);
         setName(data.name || '');
+        setLoginTime(new Date().toISOString());
         localStorage.setItem('token', data.token);
         localStorage.setItem('username', data.username);
         localStorage.setItem('role', data.role);
         localStorage.setItem('isSuperAdmin', data.is_super_admin);
         localStorage.setItem('name', data.name || '');
+        localStorage.setItem('loginTime', new Date().toISOString());
         setAuthUsername('');
         setAuthPassword('');
         if (data.role === 'admin' && loginRole === 'admin') {
@@ -267,11 +281,13 @@ function App() {
     setName('');
     setRole('user');
     setIsSuperAdmin(false);
+    setLoginTime('');
     localStorage.removeItem('token');
     localStorage.removeItem('username');
     localStorage.removeItem('name');
     localStorage.removeItem('role');
     localStorage.removeItem('isSuperAdmin');
+    localStorage.removeItem('loginTime');
     setResult(null);
     setHistory([]);
     setPage('checker');
@@ -916,781 +932,817 @@ function App() {
 
   // ---------- LOGGED IN VIEW ----------
   return (
-    <div className="app">
-      <div className="masthead">
-        <h1>Fake News Detector</h1>
-        <p className="kicker">Editorial Verification Desk</p>
-      </div>
-      <hr className="rule" />
+    <div className="app-shell">
+      <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+        <Menu size={20} />
+      </button>
 
-      <div className="nav-bar">
-        <div className="profile-menu-wrapper">
-          <button className="profile-btn" onClick={() => setMenuOpen(!menuOpen)}>
-            <span className="avatar-circle"><User size={16} /></span>
-            <span className="profile-name">{name || username}</span>
-          </button>
+      {mobileMenuOpen && <div className="mobile-overlay" onClick={() => setMobileMenuOpen(false)} />}
 
-          {menuOpen && (
-            <>
-              <div className="menu-overlay" onClick={() => setMenuOpen(false)} />
-              <div className="profile-dropdown">
-                <div className="dropdown-identity">
-                  <p className="dropdown-name">{name || username}</p>
-                  <p className="dropdown-username">@{username}</p>
-                </div>
-                <hr className="dropdown-divider" />
-                <button
-                  className={page === 'checker' ? 'active' : ''}
-                  onClick={() => { setPage('checker'); setMenuOpen(false); }}
-                >
-                  <Search size={15} /> Dashboard
-                </button>
-                <button
-                  className={page === 'history' ? 'active' : ''}
-                  onClick={() => { setPage('history'); setMenuOpen(false); }}
-                >
-                  <HistoryIcon size={15} /> History
-                </button>
-                {role === 'admin' && (
-                  <button
-                    className={page === 'admin' ? 'active' : ''}
-                    onClick={() => { setPage('admin'); setMenuOpen(false); }}
-                  >
-                    <ShieldCheck size={15} /> Admin
-                  </button>
-                )}
-                <button
-                  className={page === 'settings' ? 'active' : ''}
-                  onClick={() => { setPage('settings'); setMenuOpen(false); }}
-                >
-                  <Lock size={15} /> Settings
-                </button>
-                 
-                <button
-                  className={page === 'help' ? 'active' : ''}
-                  onClick={() => { setPage('help'); setMenuOpen(false); }}
-                >
-                  <HelpCircle size={15} /> Help
-                </button>
-
-                <button onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
-                  {theme === 'light' ? <Moon size={15} /> : <Sun size={15} />}
-                  {theme === 'light' ? 'Dark mode' : 'Light mode'}
-                </button>
-                <hr className="dropdown-divider" />
-                <button className="logout-item" onClick={handleLogout}>
-                  <LogOut size={15} /> Log out
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      <div className="content-card">
-        {page === 'checker' && (
-          <>
-            <h2 className="content-title">Check an Article</h2>
-            <p className="subtitle content-subtitle">Paste an article's text or a link — we'll tell you what the evidence says.</p>
-
-            <div className="toggle">
-              <button className={inputType === 'text' ? 'active' : ''} onClick={() => setInputType('text')}>
-                <FileText size={14} /> Text
-              </button>
-              <button className={inputType === 'url' ? 'active' : ''} onClick={() => setInputType('url')}>
-                <Link2 size={14} /> URL
-              </button>
-              <button className={inputType === 'batch' ? 'active' : ''} onClick={() => setInputType('batch')}>
-                <Search size={14} /> Batch
-              </button>
+      <aside className={`sidebar ${sidebarCollapsed ? 'collapsed' : ''} ${mobileMenuOpen ? 'mobile-open' : ''}`}>
+        <div className="sidebar-brand">
+          {!sidebarCollapsed && (
+            <div>
+              <h1>Fake News Detector</h1>
+              <p className="kicker">Editorial Verification Desk</p>
             </div>
+          )}
+          <button className="collapse-btn" onClick={() => setSidebarCollapsed(!sidebarCollapsed)}>
+            {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          </button>
+        </div>
 
-            {inputType === 'text' && (
-              <textarea
-                placeholder="Paste article text here..."
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                rows={8}
-              />
-            )}
-
-            {inputType === 'url' && (
-              <input
-                type="text"
-                placeholder="Paste article URL here..."
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-              />
-            )}
-
-            {inputType === 'batch' && (
-              <textarea
-                placeholder="Paste up to 10 URLs, one per line..."
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                rows={8}
-              />
-            )}
-
-            <button
-              className="check-btn"
-              onClick={inputType === 'batch' ? handleBatchCheck : handleCheck}
-              disabled={inputType === 'batch' ? batchLoading : loading}
-            >
-              {inputType === 'batch'
-                ? (batchLoading ? 'Checking batch...' : <><Search size={15} /> Check All</>)
-                : (loading ? 'Checking...' : <><Search size={15} /> Check the record</>)}
-            </button>
-
-            {loading && (
-              <div className="skeleton-result">
-                <div className="skeleton-line skeleton-stamp"></div>
-                <div className="skeleton-line skeleton-bar"></div>
-                <div className="skeleton-line skeleton-text"></div>
-                <div className="skeleton-line skeleton-text short"></div>
-              </div>
-            )}
-
-            {error && (
-              <p className="error">
-                {retryCountdown > 0
-                  ? `Too many checks in a short time — try again in ${retryCountdown}s.`
-                  : error}
-              </p>
-            )}
-
-            {result && (
-              <div className={`result ${result.label.toLowerCase()}`}>
-                <button
-                  className={`copy-btn ${copied ? 'copied' : ''}`}
-                  onClick={() => {
-                    navigator.clipboard.writeText(
-                      `Verdict: ${result.label} (${result.confidence}% confidence)\n"${result.extracted_text_preview}..."`
-                    );
-                    setCopied(true);
-                    setTimeout(() => setCopied(false), 2000);
-                  }}
-                >
-                  {copied ? 'Copied ✓' : 'Copy result'}
-                </button>
-                <div className="stamp">{result.label === 'Real' ? 'Verified' : result.label === 'Fake' ? 'Flagged' : 'Uncertain'}</div>
-                <p className="confidence">Confidence: {result.confidence}%</p>
-                <div className="confidence-bar-track">
-                  <div
-                    className={`confidence-bar-fill ${result.label.toLowerCase()}`}
-                    style={{ width: `${result.confidence}%` }}
-                  />
-                </div>
-                <p className="preview">"{result.extracted_text_preview}..."</p>
-
-                {result.top_words && result.top_words.length > 0 && (
-                  <div className="top-words">
-                    <p className="top-words-label">Key words influencing this result</p>
-                    <div className="word-chips">
-                      {result.top_words.map((item, i) => (
-                        <span key={i} className="word-chip">{item.word}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {batchLoading && (
-              <div className="skeleton-list">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="skeleton-card">
-                    <div className="skeleton-line skeleton-stamp"></div>
-                    <div className="skeleton-line skeleton-text"></div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {batchResults && (
-              <div className="batch-results">
-                {batchResults.map((item, i) => (
-                  <div key={i} className={`batch-item ${item.error ? 'error-item' : item.label?.toLowerCase()}`}>
-                    <p className="batch-url">{item.url}</p>
-                    {item.error ? (
-                      <p className="batch-error">{item.error}</p>
-                    ) : (
-                      <>
-                        <span className={`mini-stamp ${item.label.toLowerCase()}`}>
-                          {item.label === 'Real' ? 'Verified' : item.label === 'Fake' ? 'Flagged' : 'Uncertain'}
-                        </span>
-                        <span className="batch-confidence">{item.confidence}%</span>
-                      </>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-
-        {page === 'history' && (
-          <>
-            <h2 className="content-title">Your Record</h2>
-            <p className="subtitle content-subtitle">Every article you've checked, most recent first.</p>
-
-            {!historyLoading && history.length > 0 && (
-              <div className="export-wrapper">
-                <button className="export-btn" onClick={() => setExportMenuOpen(!exportMenuOpen)}>
-                  Export ▾
-                </button>
-                {exportMenuOpen && (
+        <nav className="sidebar-nav">
+          <button className={page === 'checker' ? 'active' : ''} onClick={() => {setPage('checker'); setMobileMenuOpen(false);}} title="Dashboard">
+            <LayoutDashboard size={16} /> {!sidebarCollapsed && 'Dashboard'}
+          </button>
+          <button className={page === 'history' ? 'active' : ''} onClick={() => {setPage('history'); setMobileMenuOpen(false);}} title="History">
+            <HistoryIcon size={16} /> {!sidebarCollapsed && 'History'}
+          </button>
+          {role === 'admin' && (
+            <div className="sidebar-group">
+              <button
+                className={page === 'admin' ? 'active' : ''}
+                onClick={() => {
+                  setPage('admin');
+                  if (!sidebarCollapsed) setAdminMenuOpen(!adminMenuOpen);
+                }}
+                title="Admin"
+              >
+                <ShieldCheck size={16} />
+                {!sidebarCollapsed && (
                   <>
-                    <div className="menu-overlay" onClick={() => setExportMenuOpen(false)} />
-                    <div className="export-dropdown">
-                      <button onClick={() => { handleExportHistory(); setExportMenuOpen(false); }}>
-                        Export as CSV
-                      </button>
-                      <button onClick={() => { handleExportPDF(); setExportMenuOpen(false); }}>
-                        Export as PDF
-                      </button>
-                    </div>
+                    <span className="sidebar-label">Admin</span>
+                    {adminMenuOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                   </>
                 )}
-              </div>
-            )}
+              </button>
 
-            {historyLoading && (
-              <div className="skeleton-list">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="skeleton-card">
-                    <div className="skeleton-line skeleton-stamp"></div>
-                    <div className="skeleton-line skeleton-text"></div>
-                    <div className="skeleton-line skeleton-text short"></div>
+              {!sidebarCollapsed && (
+                <div className={`sidebar-submenu ${adminMenuOpen ? 'open' : ''}`}>
+                  <button
+                    className={page === 'admin' && adminTab === 'users' ? 'active' : ''}
+                    onClick={() => { setPage('admin'); setAdminTab('users'); setMobileMenuOpen(false); }}
+                  >
+                    <Users2 size={14} /> Users
+                  </button>
+                  <button
+                    className={page === 'admin' && adminTab === 'checks' ? 'active' : ''}
+                    onClick={() => { setPage('admin'); setAdminTab('checks'); setMobileMenuOpen(false); }}
+                  >
+                    <Activity size={14} /> Activity
+                  </button>
+                  <button
+                    className={page === 'admin' && adminTab === 'analytics' ? 'active' : ''}
+                    onClick={() => { setPage('admin'); setAdminTab('analytics'); setMobileMenuOpen(false); }}
+                  >
+                    <BarChart3 size={14} /> Analytics
+                  </button>
+                  <button
+                    className={page === 'admin' && adminTab === 'audit' ? 'active' : ''}
+                    onClick={() => { setPage('admin'); setAdminTab('audit'); setMobileMenuOpen(false); }}
+                  >
+                    <ScrollText size={14} /> Audit Log
+                  </button>
+                  <button
+                    className={page === 'admin' && adminTab === 'messages' ? 'active' : ''}
+                    onClick={() => { setPage('admin'); setAdminTab('messages'); setMobileMenuOpen(false); }}
+                  >
+                    <Inbox size={14} />
+                    Messages
+                    {adminMessages.filter(m => m.status === 'pending').length > 0 && (
+                      <span className="badge-count">{adminMessages.filter(m => m.status === 'pending').length}</span>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+          <button className={page === 'settings' ? 'active' : ''} onClick={() => { setPage('settings'); setMobileMenuOpen(false); }} title="Settings">
+            <Lock size={16} /> {!sidebarCollapsed && 'Settings'}
+          </button>
+          <button className={page === 'help' ? 'active' : ''} onClick={() => { setPage('help'); setMobileMenuOpen(false); }} title="Help">
+            <HelpCircle size={16} /> {!sidebarCollapsed && 'Help'}
+          </button>
+        </nav>
+
+        <div className="sidebar-footer">
+          <button onClick={() => {setTheme(theme === 'light' ? 'dark' : 'light'); setMobileMenuOpen(false);}} title="Toggle theme">
+            {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+            {!sidebarCollapsed && (theme === 'light' ? 'Dark mode' : 'Light mode')}
+          </button>
+          <button onClick={() => {handleLogout(); setMobileMenuOpen(false);}} title="Log out">
+            <LogOut size={16} /> {!sidebarCollapsed && 'Log out'}
+          </button>
+        </div>
+      </aside>
+
+      <main className="main-content">
+        <div className="welcome-bar">
+          <div>
+            <h2 className="welcome-title">Welcome back, {(name || username).toUpperCase()}</h2>
+            {loginTime && (
+              <span className="login-time-pill">
+                <Clock size={13} /> Login Time: {new Date(loginTime).toLocaleString()}
+              </span>
+            )}
+          </div>
+          <span className={`role-pill ${role}`}>
+            {isSuperAdmin ? 'Super Admin' : role === 'admin' ? 'Admin' : 'User'}
+          </span>
+        </div>
+
+        <div className="content-card">
+          {page === 'checker' && (
+            <>
+              <h2 className="content-title">Check an Article</h2>
+              <p className="subtitle content-subtitle">Paste an article's text or a link — we'll tell you what the evidence says.</p>
+
+              <div className="toggle">
+                <button className={inputType === 'text' ? 'active' : ''} onClick={() => setInputType('text')}>
+                  <FileText size={14} /> Text
+                </button>
+                <button className={inputType === 'url' ? 'active' : ''} onClick={() => setInputType('url')}>
+                  <Link2 size={14} /> URL
+                </button>
+                <button className={inputType === 'batch' ? 'active' : ''} onClick={() => setInputType('batch')}>
+                  <Search size={14} /> Batch
+                </button>
+              </div>
+
+              {inputType === 'text' && (
+                <textarea
+                  placeholder="Paste article text here..."
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  rows={8}
+                />
+              )}
+
+              {inputType === 'url' && (
+                <input
+                  type="text"
+                  placeholder="Paste article URL here..."
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                />
+              )}
+
+              {inputType === 'batch' && (
+                <textarea
+                  placeholder="Paste up to 10 URLs, one per line..."
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  rows={8}
+                />
+              )}
+
+              <button
+                className="check-btn"
+                onClick={inputType === 'batch' ? handleBatchCheck : handleCheck}
+                disabled={inputType === 'batch' ? batchLoading : loading}
+              >
+                {inputType === 'batch'
+                  ? (batchLoading ? 'Checking batch...' : <><Search size={15} /> Check All</>)
+                  : (loading ? 'Checking...' : <><Search size={15} /> Check the record</>)}
+              </button>
+
+              {loading && (
+                <div className="skeleton-result">
+                  <div className="skeleton-line skeleton-stamp"></div>
+                  <div className="skeleton-line skeleton-bar"></div>
+                  <div className="skeleton-line skeleton-text"></div>
+                  <div className="skeleton-line skeleton-text short"></div>
+                </div>
+              )}
+
+              {error && (
+                <p className="error">
+                  {retryCountdown > 0
+                    ? `Too many checks in a short time — try again in ${retryCountdown}s.`
+                    : error}
+                </p>
+              )}
+
+              {result && (
+                <div className={`result ${result.label.toLowerCase()}`}>
+                  <button
+                    className={`copy-btn ${copied ? 'copied' : ''}`}
+                    onClick={() => {
+                      navigator.clipboard.writeText(
+                        `Verdict: ${result.label} (${result.confidence}% confidence)\n"${result.extracted_text_preview}..."`
+                      );
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }}
+                  >
+                    {copied ? 'Copied ✓' : 'Copy result'}
+                  </button>
+                  <div className="stamp">{result.label === 'Real' ? 'Verified' : result.label === 'Fake' ? 'Flagged' : 'Uncertain'}</div>
+                  <p className="confidence">Confidence: {result.confidence}%</p>
+                  <div className="confidence-bar-track">
+                    <div
+                      className={`confidence-bar-fill ${result.label.toLowerCase()}`}
+                      style={{ width: `${result.confidence}%` }}
+                    />
                   </div>
-                ))}
-              </div>
-            )}
+                  <p className="preview">"{result.extracted_text_preview}..."</p>
 
-            {!historyLoading && history.length === 0 && (
-              <p className="subtitle">No checks yet — head to the Checker tab to verify your first article.</p>
-            )}
+                  {result.top_words && result.top_words.length > 0 && (
+                    <div className="top-words">
+                      <p className="top-words-label">Key words influencing this result</p>
+                      <div className="word-chips">
+                        {result.top_words.map((item, i) => (
+                          <span key={i} className="word-chip">{item.word}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
-            {/* Scrollable history list with a floating "back to top" button that only
-                appears once the user has scrolled down inside this section. */}
-            {!historyLoading && history.length > 0 && (
-              <div className="scroll-container">
-                <div
-                  className="history history-scroll"
-                  id="history-scroll"
-                  onScroll={(e) => setHistoryScrolled(e.target.scrollTop > 40)}
-                >
-                  {history.map((item) => (
-                    <div key={item.id} className={`history-item ${item.label.toLowerCase()}`}>
-                      <div className="history-item-header">
-                        <span className={`mini-stamp ${item.label.toLowerCase()}`}>{item.label === 'Real' ? 'Verified' : item.label === 'Fake' ? 'Flagged' : 'Uncertain'}</span>
-                        <span className="history-date">{new Date(item.checked_at).toLocaleString()}</span>
-                      </div>
-                      <p className="preview">"{item.text_preview}..."</p>
-                      <div className="history-footer">
-                        <p className="history-confidence">Confidence: {item.confidence}%</p>
-                        <button className="delete-btn" onClick={() => handleDeleteHistory(item.id)}>Remove</button>
-                      </div>
+              {batchLoading && (
+                <div className="skeleton-list">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="skeleton-card">
+                      <div className="skeleton-line skeleton-stamp"></div>
+                      <div className="skeleton-line skeleton-text"></div>
                     </div>
                   ))}
                 </div>
+              )}
 
-                {historyScrolled && (
-                  <button
-                    className="back-to-top floating"
-                    onClick={() => document.getElementById('history-scroll')?.scrollTo({ top: 0, behavior: 'smooth' })}
-                  >
-                    ↑ Top
+              {batchResults && (
+                <div className="batch-results">
+                  {batchResults.map((item, i) => (
+                    <div key={i} className={`batch-item ${item.error ? 'error-item' : item.label?.toLowerCase()}`}>
+                      <p className="batch-url">{item.url}</p>
+                      {item.error ? (
+                        <p className="batch-error">{item.error}</p>
+                      ) : (
+                        <>
+                          <span className={`mini-stamp ${item.label.toLowerCase()}`}>
+                            {item.label === 'Real' ? 'Verified' : item.label === 'Fake' ? 'Flagged' : 'Uncertain'}
+                          </span>
+                          <span className="batch-confidence">{item.confidence}%</span>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {page === 'history' && (
+            <>
+              <h2 className="content-title">Your Record</h2>
+              <p className="subtitle content-subtitle">Every article you've checked, most recent first.</p>
+
+              {!historyLoading && history.length > 0 && (
+                <div className="export-wrapper">
+                  <button className="export-btn" onClick={() => setExportMenuOpen(!exportMenuOpen)}>
+                    Export ▾
                   </button>
-                )}
-              </div>
-            )}
-          </>
-        )}
+                  {exportMenuOpen && (
+                    <>
+                      <div className="menu-overlay" onClick={() => setExportMenuOpen(false)} />
+                      <div className="export-dropdown">
+                        <button onClick={() => { handleExportHistory(); setExportMenuOpen(false); }}>
+                          Export as CSV
+                        </button>
+                        <button onClick={() => { handleExportPDF(); setExportMenuOpen(false); }}>
+                          Export as PDF
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
 
-        {page === 'admin' && role === 'admin' && (
-          <>
-            <h2 className="content-title">Admin Panel</h2>
+              {historyLoading && (
+                <div className="skeleton-list">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="skeleton-card">
+                      <div className="skeleton-line skeleton-stamp"></div>
+                      <div className="skeleton-line skeleton-text"></div>
+                      <div className="skeleton-line skeleton-text short"></div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {!historyLoading && history.length === 0 && (
+                <p className="subtitle">No checks yet — head to the Checker tab to verify your first article.</p>
+              )}
+
+              {/* Scrollable history list with a floating "back to top" button that only
+                  appears once the user has scrolled down inside this section. */}
+              {!historyLoading && history.length > 0 && (
+                <div className="scroll-container">
+                  <div
+                    className="history history-scroll"
+                    id="history-scroll"
+                    onScroll={(e) => setHistoryScrolled(e.target.scrollTop > 40)}
+                  >
+                    {history.map((item) => (
+                      <div key={item.id} className={`history-item ${item.label.toLowerCase()}`}>
+                        <div className="history-item-header">
+                          <span className={`mini-stamp ${item.label.toLowerCase()}`}>{item.label === 'Real' ? 'Verified' : item.label === 'Fake' ? 'Flagged' : 'Uncertain'}</span>
+                          <span className="history-date">{new Date(item.checked_at).toLocaleString()}</span>
+                        </div>
+                        <p className="preview">"{item.text_preview}..."</p>
+                        <div className="history-footer">
+                          <p className="history-confidence">Confidence: {item.confidence}%</p>
+                          <button className="delete-btn" onClick={() => handleDeleteHistory(item.id)}>Remove</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {historyScrolled && (
+                    <button
+                      className="back-to-top floating"
+                      onClick={() => document.getElementById('history-scroll')?.scrollTo({ top: 0, behavior: 'smooth' })}
+                    >
+                      ↑ Top
+                    </button>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
+          {page === 'admin' && role === 'admin' && (
+            <>
+            <h2 className="content-title">
+              {adminTab === 'users' && 'Users'}
+              {adminTab === 'checks' && 'Activity'}
+              {adminTab === 'analytics' && 'Analytics'}
+              {adminTab === 'audit' && 'Audit Log'}
+              {adminTab === 'messages' && 'Messages'}
+            </h2>
             <p className="subtitle content-subtitle">System-wide users and activity.</p>
 
-            <div className="toggle">
-              <button className={adminTab === 'users' ? 'active' : ''} onClick={() => setAdminTab('users')}>
-                Users
-              </button>
-              <button className={adminTab === 'checks' ? 'active' : ''} onClick={() => setAdminTab('checks')}>
-                Activity
-              </button>
-              <button className={adminTab === 'analytics' ? 'active' : ''} onClick={() => setAdminTab('analytics')}>
-                Analytics
-              </button>
-              <button className={adminTab === 'audit' ? 'active' : ''} onClick={() => setAdminTab('audit')}>
-                Audit Log
-              </button>
-              <button className={adminTab === 'messages' ? 'active' : ''} onClick={() => setAdminTab('messages')}>
-                Messages {adminMessages.filter(m => m.status === 'pending').length > 0 && (
-                  <span className="badge-count">{adminMessages.filter(m => m.status === 'pending').length}</span>
-                )}
-              </button>
-            </div>
+              {adminLoading && (
+                <div className="skeleton-table">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="skeleton-row"></div>
+                  ))}
+                </div>
+              )}
 
-            {adminLoading && (
-              <div className="skeleton-table">
-                {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="skeleton-row"></div>
-                ))}
-              </div>
-            )}
+              {!adminLoading && (
+                <input
+                  type="text"
+                  className="admin-search"
+                  placeholder={adminTab === 'users' ? 'Search by username...' : 'Search by username or verdict...'}
+                  value={adminSearch}
+                  onChange={(e) => setAdminSearch(e.target.value)}
+                />
+              )}
 
-            {!adminLoading && (
+              {/* Same scrollable + floating "back to top" pattern as History, applied to
+                  whichever admin table is currently active. */}
+              {!adminLoading && adminTab === 'users' && (
+                <div className="scroll-container">
+                  <div
+                    className="admin-table-wrapper admin-scroll"
+                    id="admin-scroll"
+                    onScroll={(e) => setAdminScrolled(e.target.scrollTop > 40)}
+                  >
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Username</th>
+                          <th>Role</th>
+                          <th>Checks</th>
+                          <th>Joined</th>
+                          <th>Status</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {adminUsers
+                          .filter((u) => u.username.toLowerCase().includes(adminSearch.toLowerCase()))
+                          .map((u) => (
+                            <tr key={u.id}>
+                              <td>
+                                <button className="user-link" onClick={() => handleViewUser(u)}>{u.username}</button>
+                              </td>
+                              <td>
+                                {isSuperAdmin && !u.is_super_admin ? (
+                                  <select
+                                    className="role-select"
+                                    value={u.role}
+                                    onChange={(e) => handleChangeRole(u.id, e.target.value)}
+                                  >
+                                    <option value="user">user</option>
+                                    <option value="admin">admin</option>
+                                  </select>
+                                ) : (
+                                  <span className={`role-badge ${u.role}`}>
+                                    {u.is_super_admin ? 'super admin' : u.role}
+                                  </span>
+                                )}
+                              </td>
+                              <td>{u.check_count}</td>
+                              <td>{new Date(u.created_at).toLocaleDateString()}</td>
+                              <td>
+                                {u.is_suspended && <span className="suspended-badge">Suspended</span>}
+                              </td>
+                              <td>
+                                {!u.is_super_admin && (
+                                  <div className="admin-actions">
+                                    <button
+                                      className="suspend-btn"
+                                      onClick={() => handleToggleSuspend(u.id, u.is_suspended)}
+                                    >
+                                      {u.is_suspended ? 'Reactivate' : 'Suspend'}
+                                    </button>
+                                    <button className="delete-btn" onClick={() => handleDeleteUser(u.id)}>Remove</button>
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {adminScrolled && (
+                    <button
+                      className="back-to-top floating"
+                      onClick={() => document.getElementById('admin-scroll')?.scrollTo({ top: 0, behavior: 'smooth' })}
+                    >
+                      ↑ Top
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {!adminLoading && adminTab === 'checks' && (
+                <div className="scroll-container">
+                  <div
+                    className="admin-table-wrapper admin-scroll"
+                    id="admin-scroll"
+                    onScroll={(e) => setAdminScrolled(e.target.scrollTop > 40)}
+                  >
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th>User</th>
+                          <th>Type</th>
+                          <th>Verdict</th>
+                          <th>Confidence</th>
+                          <th>Date</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {adminChecks
+                          .filter((c) =>
+                            c.username.toLowerCase().includes(adminSearch.toLowerCase()) ||
+                            c.label.toLowerCase().includes(adminSearch.toLowerCase())
+                          )
+                          .map((c) => (
+                            <tr key={c.id}>
+                              <td>{c.username}</td>
+                              <td>{c.input_type}</td>
+                              <td><span className={`mini-stamp ${c.label.toLowerCase()}`}>{c.label}</span></td>
+                              <td>{c.confidence}%</td>
+                              <td>{new Date(c.checked_at).toLocaleString()}</td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {adminScrolled && (
+                    <button
+                      className="back-to-top floating"
+                      onClick={() => document.getElementById('admin-scroll')?.scrollTo({ top: 0, behavior: 'smooth' })}
+                    >
+                      ↑ Top
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {!adminLoading && adminTab === 'analytics' && analytics && (
+                <div className="analytics-view">
+                  <div className="stat-cards">
+                    <div className="stat-card">
+                      <p className="stat-number">{analytics.total_users}</p>
+                      <p className="stat-label">Total Users</p>
+                    </div>
+                    <div className="stat-card">
+                      <p className="stat-number">{analytics.total_checks}</p>
+                      <p className="stat-label">Total Checks</p>
+                    </div>
+                  </div>
+
+                  <h3 className="chart-title">Checks over the last 14 days</h3>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <LineChart data={analytics.daily}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border-soft)" />
+                      <XAxis dataKey="day" tick={{ fontSize: 11 }} stroke="var(--ink-muted)" />
+                      <YAxis tick={{ fontSize: 11 }} stroke="var(--ink-muted)" allowDecimals={false} />
+                      <Tooltip contentStyle={{ background: 'var(--card-bg)', border: '1px solid var(--border)', fontSize: 12 }} />
+                      <Line type="monotone" dataKey="count" stroke="var(--accent)" strokeWidth={2} dot={{ r: 3 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+
+                  <h3 className="chart-title">Verdict breakdown</h3>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <PieChart>
+                      <Pie
+                        data={analytics.by_label}
+                        dataKey="count"
+                        nameKey="label"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        label={(entry) => `${entry.label}: ${entry.count}`}
+                      >
+                        {analytics.by_label.map((entry, i) => (
+                          <Cell key={i} fill={
+                            entry.label === 'Real' ? '#1F6F54' :
+                            entry.label === 'Fake' ? '#9C2B1F' : '#8A6E4B'
+                          } />
+                        ))}
+                      </Pie>
+                      <Tooltip contentStyle={{ background: 'var(--card-bg)', border: '1px solid var(--border)', fontSize: 12 }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+
+              {!adminLoading && adminTab === 'messages' && (
+                <div className="messages-list">
+                  {adminMessages.length === 0 && <p className="subtitle">No messages yet.</p>}
+                  {adminMessages.map((m) => (
+                    <div key={m.id} className={`message-item ${m.status}`}>
+                      <div className="message-header">
+                        <span className={`type-badge ${m.type}`}>{m.type === 'appeal' ? 'Appeal' : 'Contact'}</span>
+                        <span className="history-date">@{m.username} · {new Date(m.created_at).toLocaleString()}</span>
+                      </div>
+                      <p className="message-text">{m.message}</p>
+                      {m.admin_response && (
+                        <p className="message-response"><strong>Your response:</strong> {m.admin_response}</p>
+                      )}
+                      {m.status === 'pending' && (
+                        <button className="export-btn" onClick={() => handleRespond(m)}>Respond</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {!adminLoading && adminTab === 'audit' && (
+                <div className="audit-list">
+                  {auditLog.length === 0 && <p className="subtitle">No admin actions recorded yet.</p>}
+                  {auditLog.map((log) => (
+                    <div key={log.id} className="audit-item">
+                      <span className={`type-badge action-${log.action}`}>{log.action.replace('_', ' ')}</span>
+                      <p className="audit-details">{log.details}</p>
+                      <span className="history-date">{new Date(log.created_at).toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {page === 'settings' && (
+            <>
+              <h2 className="content-title">Account Settings</h2>
+              <p className="subtitle content-subtitle">Manage your name, username, and password.</p>
+
+              <label className="field-label">Display Name</label>
               <input
                 type="text"
-                className="admin-search"
-                placeholder={adminTab === 'users' ? 'Search by username...' : 'Search by username or verdict...'}
-                value={adminSearch}
-                onChange={(e) => setAdminSearch(e.target.value)}
+                placeholder="Any name you like — emojis welcome ✨"
+                value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)}
               />
-            )}
+              <button className="check-btn" onClick={handleChangeName}>Update Name</button>
+              {nameError && <p className="error">{nameError}</p>}
+              {nameMessage && <p className="success-message">{nameMessage}</p>}
 
-            {/* Same scrollable + floating "back to top" pattern as History, applied to
-                whichever admin table is currently active. */}
-            {!adminLoading && adminTab === 'users' && (
-              <div className="scroll-container">
-                <div
-                  className="admin-table-wrapper admin-scroll"
-                  id="admin-scroll"
-                  onScroll={(e) => setAdminScrolled(e.target.scrollTop > 40)}
-                >
-                  <table className="admin-table">
-                    <thead>
-                      <tr>
-                        <th>Username</th>
-                        <th>Role</th>
-                        <th>Checks</th>
-                        <th>Joined</th>
-                        <th>Status</th>
-                        <th></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {adminUsers
-                        .filter((u) => u.username.toLowerCase().includes(adminSearch.toLowerCase()))
-                        .map((u) => (
-                          <tr key={u.id}>
-                            <td>
-                              <button className="user-link" onClick={() => handleViewUser(u)}>{u.username}</button>
-                            </td>
-                            <td>
-                              {isSuperAdmin && !u.is_super_admin ? (
-                                <select
-                                  className="role-select"
-                                  value={u.role}
-                                  onChange={(e) => handleChangeRole(u.id, e.target.value)}
-                                >
-                                  <option value="user">user</option>
-                                  <option value="admin">admin</option>
-                                </select>
-                              ) : (
-                                <span className={`role-badge ${u.role}`}>
-                                  {u.is_super_admin ? 'super admin' : u.role}
-                                </span>
-                              )}
-                            </td>
-                            <td>{u.check_count}</td>
-                            <td>{new Date(u.created_at).toLocaleDateString()}</td>
-                            <td>
-                              {u.is_suspended && <span className="suspended-badge">Suspended</span>}
-                            </td>
-                            <td>
-                              {!u.is_super_admin && (
-                                <div className="admin-actions">
-                                  <button
-                                    className="suspend-btn"
-                                    onClick={() => handleToggleSuspend(u.id, u.is_suspended)}
-                                  >
-                                    {u.is_suspended ? 'Reactivate' : 'Suspend'}
-                                  </button>
-                                  <button className="delete-btn" onClick={() => handleDeleteUser(u.id)}>Remove</button>
-                                </div>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                </div>
+              <hr className="dropdown-divider" style={{ margin: '24px 0' }} />
 
-                {adminScrolled && (
-                  <button
-                    className="back-to-top floating"
-                    onClick={() => document.getElementById('admin-scroll')?.scrollTo({ top: 0, behavior: 'smooth' })}
-                  >
-                    ↑ Top
-                  </button>
-                )}
-              </div>
-            )}
-
-            {!adminLoading && adminTab === 'checks' && (
-              <div className="scroll-container">
-                <div
-                  className="admin-table-wrapper admin-scroll"
-                  id="admin-scroll"
-                  onScroll={(e) => setAdminScrolled(e.target.scrollTop > 40)}
-                >
-                  <table className="admin-table">
-                    <thead>
-                      <tr>
-                        <th>User</th>
-                        <th>Type</th>
-                        <th>Verdict</th>
-                        <th>Confidence</th>
-                        <th>Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {adminChecks
-                        .filter((c) =>
-                          c.username.toLowerCase().includes(adminSearch.toLowerCase()) ||
-                          c.label.toLowerCase().includes(adminSearch.toLowerCase())
-                        )
-                        .map((c) => (
-                          <tr key={c.id}>
-                            <td>{c.username}</td>
-                            <td>{c.input_type}</td>
-                            <td><span className={`mini-stamp ${c.label.toLowerCase()}`}>{c.label}</span></td>
-                            <td>{c.confidence}%</td>
-                            <td>{new Date(c.checked_at).toLocaleString()}</td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {adminScrolled && (
-                  <button
-                    className="back-to-top floating"
-                    onClick={() => document.getElementById('admin-scroll')?.scrollTo({ top: 0, behavior: 'smooth' })}
-                  >
-                    ↑ Top
-                  </button>
-                )}
-              </div>
-            )}
-
-            {!adminLoading && adminTab === 'analytics' && analytics && (
-              <div className="analytics-view">
-                <div className="stat-cards">
-                  <div className="stat-card">
-                    <p className="stat-number">{analytics.total_users}</p>
-                    <p className="stat-label">Total Users</p>
-                  </div>
-                  <div className="stat-card">
-                    <p className="stat-number">{analytics.total_checks}</p>
-                    <p className="stat-label">Total Checks</p>
-                  </div>
-                </div>
-
-                <h3 className="chart-title">Checks over the last 14 days</h3>
-                <ResponsiveContainer width="100%" height={220}>
-                  <LineChart data={analytics.daily}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border-soft)" />
-                    <XAxis dataKey="day" tick={{ fontSize: 11 }} stroke="var(--ink-muted)" />
-                    <YAxis tick={{ fontSize: 11 }} stroke="var(--ink-muted)" allowDecimals={false} />
-                    <Tooltip contentStyle={{ background: 'var(--card-bg)', border: '1px solid var(--border)', fontSize: 12 }} />
-                    <Line type="monotone" dataKey="count" stroke="var(--accent)" strokeWidth={2} dot={{ r: 3 }} />
-                  </LineChart>
-                </ResponsiveContainer>
-
-                <h3 className="chart-title">Verdict breakdown</h3>
-                <ResponsiveContainer width="100%" height={220}>
-                  <PieChart>
-                    <Pie
-                      data={analytics.by_label}
-                      dataKey="count"
-                      nameKey="label"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      label={(entry) => `${entry.label}: ${entry.count}`}
-                    >
-                      {analytics.by_label.map((entry, i) => (
-                        <Cell key={i} fill={
-                          entry.label === 'Real' ? '#1F6F54' :
-                          entry.label === 'Fake' ? '#9C2B1F' : '#8A6E4B'
-                        } />
-                      ))}
-                    </Pie>
-                    <Tooltip contentStyle={{ background: 'var(--card-bg)', border: '1px solid var(--border)', fontSize: 12 }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-
-            {!adminLoading && adminTab === 'messages' && (
-              <div className="messages-list">
-                {adminMessages.length === 0 && <p className="subtitle">No messages yet.</p>}
-                {adminMessages.map((m) => (
-                  <div key={m.id} className={`message-item ${m.status}`}>
-                    <div className="message-header">
-                      <span className={`type-badge ${m.type}`}>{m.type === 'appeal' ? 'Appeal' : 'Contact'}</span>
-                      <span className="history-date">@{m.username} · {new Date(m.created_at).toLocaleString()}</span>
-                    </div>
-                    <p className="message-text">{m.message}</p>
-                    {m.admin_response && (
-                      <p className="message-response"><strong>Your response:</strong> {m.admin_response}</p>
-                    )}
-                    {m.status === 'pending' && (
-                      <button className="export-btn" onClick={() => handleRespond(m)}>Respond</button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {!adminLoading && adminTab === 'audit' && (
-              <div className="audit-list">
-                {auditLog.length === 0 && <p className="subtitle">No admin actions recorded yet.</p>}
-                {auditLog.map((log) => (
-                  <div key={log.id} className="audit-item">
-                    <span className={`type-badge action-${log.action}`}>{log.action.replace('_', ' ')}</span>
-                    <p className="audit-details">{log.details}</p>
-                    <span className="history-date">{new Date(log.created_at).toLocaleString()}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-
-        {page === 'settings' && (
-          <>
-            <h2 className="content-title">Account Settings</h2>
-            <p className="subtitle content-subtitle">Manage your name, username, and password.</p>
-
-            <label className="field-label">Display Name</label>
-            <input
-              type="text"
-              placeholder="Any name you like — emojis welcome ✨"
-              value={nameInput}
-              onChange={(e) => setNameInput(e.target.value)}
-            />
-            <button className="check-btn" onClick={handleChangeName}>Update Name</button>
-            {nameError && <p className="error">{nameError}</p>}
-            {nameMessage && <p className="success-message">{nameMessage}</p>}
-
-            <hr className="dropdown-divider" style={{ margin: '24px 0' }} />
-
-            <label className="field-label">Username</label>
-            <input
-              type="text"
-              placeholder="3-20 characters: letters, numbers, _ ."
-              value={usernameInput}
-              onChange={(e) => setUsernameInput(e.target.value)}
-            />
-            {settingsUsernameAvailability && (
-              <p className={`username-status ${settingsUsernameAvailability}`}>
-                {settingsUsernameAvailability === 'checking' && 'Checking availability...'}
-                {settingsUsernameAvailability === 'available' && '✓ Username available'}
-                {settingsUsernameAvailability === 'taken' && '✕ Username already taken'}
-                {settingsUsernameAvailability === 'invalid' && '✕ 3-20 characters: letters, numbers, _ .'}
-              </p>
-            )}
-            <p className="password-hint">Can be changed once every 14 days</p>
-            <button className="check-btn" onClick={handleChangeUsername}>Update Username</button>
-            {usernameError && <p className="error">{usernameError}</p>}
-            {usernameMessage && <p className="success-message">{usernameMessage}</p>}
-
-            <hr className="dropdown-divider" style={{ margin: '24px 0' }} />
-
-            <label className="field-label">Current Password</label>
-            <div className="input-with-icon">
-              <Lock size={16} className="input-icon" />
+              <label className="field-label">Username</label>
               <input
-                type={showCurrentPassword ? 'text' : 'password'}
-                placeholder="Enter your current password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
+                type="text"
+                placeholder="3-20 characters: letters, numbers, _ ."
+                value={usernameInput}
+                onChange={(e) => setUsernameInput(e.target.value)}
               />
-              <button
-                type="button"
-                className="toggle-password"
-                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-              >
-                {showCurrentPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-
-            <label className="field-label">New Password</label>
-            <div className="input-with-icon">
-              <Lock size={16} className="input-icon" />
-              <input
-                type={showNewPassword ? 'text' : 'password'}
-                placeholder="Enter a new password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-              />
-              <button
-                type="button"
-                className="toggle-password"
-                onClick={() => setShowNewPassword(!showNewPassword)}
-              >
-                {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-            {newPassword && (
-              <ul className="password-checklist">
-                {Object.entries({
-                  length: 'At least 8 characters',
-                  uppercase: 'One uppercase letter',
-                  number: 'One number',
-                  special: 'One special character (!@#$% etc.)',
-                }).map(([key, label]) => (
-                  <li key={key} className={getPasswordChecks(newPassword)[key] ? 'met' : ''}>
-                    {getPasswordChecks(newPassword)[key] ? '✓' : '○'} {label}
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            <button className="check-btn" onClick={handleChangePassword} disabled={passwordLoading}>
-              {passwordLoading ? 'Updating...' : 'Update Password'}
-            </button>
-
-            {passwordError && <p className="error">{passwordError}</p>}
-            {passwordMessage && <p className="success-message">{passwordMessage}</p>}
-          </>
-        )}
-
-        {page === 'help' && (
-          <>
-            <h2 className="content-title">Help & Support</h2>
-            <p className="subtitle content-subtitle">Common questions and how to reach us.</p>
-
-            <div className="faq-list">
-              <div className="faq-item">
-                <p className="faq-question">How does the credibility check work?</p>
-                <p className="faq-answer">
-                  We analyze the text of an article using a machine learning model trained on thousands of
-                  real and fake news examples. It looks for language patterns associated with misinformation
-                  and returns a verdict with a confidence score.
+              {settingsUsernameAvailability && (
+                <p className={`username-status ${settingsUsernameAvailability}`}>
+                  {settingsUsernameAvailability === 'checking' && 'Checking availability...'}
+                  {settingsUsernameAvailability === 'available' && '✓ Username available'}
+                  {settingsUsernameAvailability === 'taken' && '✕ Username already taken'}
+                  {settingsUsernameAvailability === 'invalid' && '✕ 3-20 characters: letters, numbers, _ .'}
                 </p>
-              </div>
-              <div className="faq-item">
-                <p className="faq-question">Why was a real article flagged as fake (or vice versa)?</p>
-                <p className="faq-answer">
-                  No model is perfect. Our system can be less accurate on topics, writing styles, or sources
-                  it wasn't trained on. Always use the verdict as one signal, not a final judgment — and check
-                  the highlighted key words for insight into why it made that call.
-                </p>
-              </div>
-              <div className="faq-item">
-                <p className="faq-question">Why couldn't it check my URL?</p>
-                <p className="faq-answer">
-                  Some pages (slideshows, JavaScript-heavy sites, paywalled content) can't be read properly.
-                  Try pasting the article text directly instead.
-                </p>
-              </div>
-              <div className="faq-item">
-                <p className="faq-question">Is my check history private?</p>
-                <p className="faq-answer">
-                  Yes — only you can see your own history. Admins can see system-wide activity for moderation
-                  purposes, but not associate it with anything beyond your username.
-                </p>
-              </div>
-            </div>
+              )}
+              <p className="password-hint">Can be changed once every 14 days</p>
+              <button className="check-btn" onClick={handleChangeUsername}>Update Username</button>
+              {usernameError && <p className="error">{usernameError}</p>}
+              {usernameMessage && <p className="success-message">{usernameMessage}</p>}
 
-            <hr className="dropdown-divider" style={{ margin: '24px 0' }} />
+              <hr className="dropdown-divider" style={{ margin: '24px 0' }} />
 
-            <h3 className="chart-title">Still need help?</h3>
-            {contactSent ? (
-              <p className="success-message">Your message has been sent. We'll get back to you soon.</p>
-            ) : (
-              <>
-                <textarea
-                  placeholder="Describe your issue or question..."
-                  value={contactMessage}
-                  onChange={(e) => setContactMessage(e.target.value)}
-                  rows={5}
-                />
-                <button className="check-btn" onClick={handleSubmitContact}>Send Message</button>
-                {contactError && <p className="error">{contactError}</p>}
-              </>
-            )}
-          </>
-        )}
-      </div>
-
-      <footer className="app-footer">
-        Built by Alphonce Musyoka (Alli Jnr) — Multimedia University of Kenya
-      </footer>
-
-      {confirmDialog && (
-        <div className="confirm-overlay">
-          <div className="confirm-dialog">
-            <p>{confirmDialog.message}</p>
-            <div className="confirm-actions">
-              <button className="confirm-cancel" onClick={() => setConfirmDialog(null)}>Cancel</button>
-              <button className="confirm-ok" onClick={confirmDialog.onConfirm}>Confirm</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {respondingTo && (
-        <div className="confirm-overlay">
-          <div className="confirm-dialog">
-            <p><strong>Replying to @{respondingTo.username}</strong></p>
-            <p className="message-text">{respondingTo.message}</p>
-            <textarea
-              placeholder="Write your response..."
-              value={responseText}
-              onChange={(e) => setResponseText(e.target.value)}
-              rows={4}
-            />
-            {respondingTo.type === 'appeal' && (
-              <label className="checkbox-label">
+              <label className="field-label">Current Password</label>
+              <div className="input-with-icon">
+                <Lock size={16} className="input-icon" />
                 <input
-                  type="checkbox"
-                  checked={responseReactivate}
-                  onChange={(e) => setResponseReactivate(e.target.checked)}
+                  type={showCurrentPassword ? 'text' : 'password'}
+                  placeholder="Enter your current password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
                 />
-                Reactivate this account
-              </label>
-            )}
-            <div className="confirm-actions">
-              <button className="confirm-cancel" onClick={() => setRespondingTo(null)}>Cancel</button>
-              <button className="confirm-ok" onClick={submitResponse} style={{ background: 'var(--real)' }}>Send Response</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {viewingUser && (
-        <div className="confirm-overlay">
-          <div className="confirm-dialog user-history-dialog">
-            <div className="user-history-header">
-              <p><strong>@{viewingUser.username}</strong>'s activity</p>
-              <button className="confirm-cancel" onClick={() => setViewingUser(null)}>Close</button>
-            </div>
-            {userHistoryLoading && <div className="spinner" />}
-            {!userHistoryLoading && userHistory.length === 0 && (
-              <p className="subtitle">No checks yet.</p>
-            )}
-            {!userHistoryLoading && userHistory.map((item) => (
-              <div key={item.id} className={`history-item ${item.label.toLowerCase()}`}>
-                <div className="history-item-header">
-                  <span className={`mini-stamp ${item.label.toLowerCase()}`}>
-                    {item.label === 'Real' ? 'Verified' : item.label === 'Fake' ? 'Flagged' : 'Uncertain'}
-                  </span>
-                  <span className="history-date">{new Date(item.checked_at).toLocaleString()}</span>
-                </div>
-                <p className="preview">"{item.text_preview}..."</p>
-                <p className="history-confidence">Confidence: {item.confidence}%</p>
+                <button
+                  type="button"
+                  className="toggle-password"
+                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                >
+                  {showCurrentPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
-            ))}
-          </div>
+
+              <label className="field-label">New Password</label>
+              <div className="input-with-icon">
+                <Lock size={16} className="input-icon" />
+                <input
+                  type={showNewPassword ? 'text' : 'password'}
+                  placeholder="Enter a new password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="toggle-password"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                >
+                  {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              {newPassword && (
+                <ul className="password-checklist">
+                  {Object.entries({
+                    length: 'At least 8 characters',
+                    uppercase: 'One uppercase letter',
+                    number: 'One number',
+                    special: 'One special character (!@#$% etc.)',
+                  }).map(([key, label]) => (
+                    <li key={key} className={getPasswordChecks(newPassword)[key] ? 'met' : ''}>
+                      {getPasswordChecks(newPassword)[key] ? '✓' : '○'} {label}
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <button className="check-btn" onClick={handleChangePassword} disabled={passwordLoading}>
+                {passwordLoading ? 'Updating...' : 'Update Password'}
+              </button>
+
+              {passwordError && <p className="error">{passwordError}</p>}
+              {passwordMessage && <p className="success-message">{passwordMessage}</p>}
+            </>
+          )}
+
+          {page === 'help' && (
+            <>
+              <h2 className="content-title">Help & Support</h2>
+              <p className="subtitle content-subtitle">Common questions and how to reach us.</p>
+
+              <div className="faq-list">
+                <div className="faq-item">
+                  <p className="faq-question">How does the credibility check work?</p>
+                  <p className="faq-answer">
+                    We analyze the text of an article using a machine learning model trained on thousands of
+                    real and fake news examples. It looks for language patterns associated with misinformation
+                    and returns a verdict with a confidence score.
+                  </p>
+                </div>
+                <div className="faq-item">
+                  <p className="faq-question">Why was a real article flagged as fake (or vice versa)?</p>
+                  <p className="faq-answer">
+                    No model is perfect. Our system can be less accurate on topics, writing styles, or sources
+                    it wasn't trained on. Always use the verdict as one signal, not a final judgment — and check
+                    the highlighted key words for insight into why it made that call.
+                  </p>
+                </div>
+                <div className="faq-item">
+                  <p className="faq-question">Why couldn't it check my URL?</p>
+                  <p className="faq-answer">
+                    Some pages (slideshows, JavaScript-heavy sites, paywalled content) can't be read properly.
+                    Try pasting the article text directly instead.
+                  </p>
+                </div>
+                <div className="faq-item">
+                  <p className="faq-question">Is my check history private?</p>
+                  <p className="faq-answer">
+                    Yes — only you can see your own history. Admins can see system-wide activity for moderation
+                    purposes, but not associate it with anything beyond your username.
+                  </p>
+                </div>
+              </div>
+
+              <hr className="dropdown-divider" style={{ margin: '24px 0' }} />
+
+              <h3 className="chart-title">Still need help?</h3>
+              {contactSent ? (
+                <p className="success-message">Your message has been sent. We'll get back to you soon.</p>
+              ) : (
+                <>
+                  <textarea
+                    placeholder="Describe your issue or question..."
+                    value={contactMessage}
+                    onChange={(e) => setContactMessage(e.target.value)}
+                    rows={5}
+                  />
+                  <button className="check-btn" onClick={handleSubmitContact}>Send Message</button>
+                  {contactError && <p className="error">{contactError}</p>}
+                </>
+              )}
+            </>
+          )}
         </div>
-      )}
+
+        <footer className="app-footer">
+          Built by Alphonce Musyoka (Alli Jnr) — Multimedia University of Kenya
+        </footer>
+
+        {confirmDialog && (
+          <div className="confirm-overlay">
+            <div className="confirm-dialog">
+              <p>{confirmDialog.message}</p>
+              <div className="confirm-actions">
+                <button className="confirm-cancel" onClick={() => setConfirmDialog(null)}>Cancel</button>
+                <button className="confirm-ok" onClick={confirmDialog.onConfirm}>Confirm</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {respondingTo && (
+          <div className="confirm-overlay">
+            <div className="confirm-dialog">
+              <p><strong>Replying to @{respondingTo.username}</strong></p>
+              <p className="message-text">{respondingTo.message}</p>
+              <textarea
+                placeholder="Write your response..."
+                value={responseText}
+                onChange={(e) => setResponseText(e.target.value)}
+                rows={4}
+              />
+              {respondingTo.type === 'appeal' && (
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={responseReactivate}
+                    onChange={(e) => setResponseReactivate(e.target.checked)}
+                  />
+                  Reactivate this account
+                </label>
+              )}
+              <div className="confirm-actions">
+                <button className="confirm-cancel" onClick={() => setRespondingTo(null)}>Cancel</button>
+                <button className="confirm-ok" onClick={submitResponse} style={{ background: 'var(--real)' }}>Send Response</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {viewingUser && (
+          <div className="confirm-overlay">
+            <div className="confirm-dialog user-history-dialog">
+              <div className="user-history-header">
+                <p><strong>@{viewingUser.username}</strong>'s activity</p>
+                <button className="confirm-cancel" onClick={() => setViewingUser(null)}>Close</button>
+              </div>
+              {userHistoryLoading && <div className="spinner" />}
+              {!userHistoryLoading && userHistory.length === 0 && (
+                <p className="subtitle">No checks yet.</p>
+              )}
+              {!userHistoryLoading && userHistory.map((item) => (
+                <div key={item.id} className={`history-item ${item.label.toLowerCase()}`}>
+                  <div className="history-item-header">
+                    <span className={`mini-stamp ${item.label.toLowerCase()}`}>
+                      {item.label === 'Real' ? 'Verified' : item.label === 'Fake' ? 'Flagged' : 'Uncertain'}
+                    </span>
+                    <span className="history-date">{new Date(item.checked_at).toLocaleString()}</span>
+                  </div>
+                  <p className="preview">"{item.text_preview}..."</p>
+                  <p className="history-confidence">Confidence: {item.confidence}%</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+     </main>
     </div>
   );
 }
