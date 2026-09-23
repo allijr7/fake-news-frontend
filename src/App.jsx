@@ -264,8 +264,8 @@ function App() {
         localStorage.setItem('loginTime', new Date().toISOString());
         setAuthUsername('');
         setAuthPassword('');
-        if (data.role === 'admin' && loginRole === 'admin') {
-          setPage('admin');
+        if (data.role === 'admin') {
+          setPage('overview');
         }
       }
     } catch (err) {
@@ -781,7 +781,7 @@ function App() {
     if (token && page === 'history') {
       loadHistory();
     }
-    if (token && page === 'admin') {
+    if (token && (page === 'admin' || page === 'overview')) {
       loadAdminData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -953,12 +953,23 @@ function App() {
         </div>
 
         <nav className="sidebar-nav">
-          <button className={page === 'checker' ? 'active' : ''} onClick={() => {setPage('checker'); setMobileMenuOpen(false);}} title="Dashboard">
+          <button
+            className={page === (role === 'admin' ? 'overview' : 'checker') ? 'active' : ''}
+            onClick={() => { setPage(role === 'admin' ? 'overview' : 'checker'); setMobileMenuOpen(false); }}
+            title="Dashboard"
+          >
             <LayoutDashboard size={16} /> {!sidebarCollapsed && 'Dashboard'}
           </button>
-          <button className={page === 'history' ? 'active' : ''} onClick={() => {setPage('history'); setMobileMenuOpen(false);}} title="History">
-            <HistoryIcon size={16} /> {!sidebarCollapsed && 'History'}
-          </button>
+          {role !== 'admin' && (
+            <button className={page === 'history' ? 'active' : ''} onClick={() => { setPage('history'); setMobileMenuOpen(false); }} title="History">
+              <HistoryIcon size={16} /> {!sidebarCollapsed && 'History'}
+            </button>
+          )}
+          {role === 'admin' && (
+            <button className={page === 'checker' ? 'active' : ''} onClick={() => { setPage('checker'); setMobileMenuOpen(false); }} title="Check Article">
+              <Search size={16} /> {!sidebarCollapsed && 'Check Article'}
+            </button>
+          )}
           {role === 'admin' && (
             <div className="sidebar-group">
               <button
@@ -1191,6 +1202,66 @@ function App() {
                   ))}
                 </div>
               )}
+            </>
+          )}
+
+          {page === 'overview' && role === 'admin' && (
+            <>
+              <h2 className="content-title">Admin Overview</h2>
+              <p className="subtitle content-subtitle">A quick snapshot of the system.</p>
+
+              {analytics ? (
+                <>
+                  <div className="stat-cards">
+                    <div className="stat-card">
+                      <p className="stat-number">{analytics.total_users}</p>
+                      <p className="stat-label">Total Users</p>
+                    </div>
+                    <div className="stat-card">
+                      <p className="stat-number">{analytics.total_checks}</p>
+                      <p className="stat-label">Total Checks</p>
+                    </div>
+                    <div className="stat-card">
+                      <p className="stat-number">{adminMessages.filter(m => m.status === 'pending').length}</p>
+                      <p className="stat-label">Pending Messages</p>
+                    </div>
+                  </div>
+
+                  <h3 className="chart-title">Recent activity</h3>
+                  <div className="messages-list">
+                    {adminChecks.slice(0, 5).map((c) => (
+                      <div key={c.id} className="audit-item">
+                        <span className={`mini-stamp ${c.label.toLowerCase()}`}>{c.label}</span>
+                        <p className="audit-details">@{c.username} · {c.input_type}</p>
+                        <span className="history-date">{new Date(c.checked_at).toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="skeleton-table">
+                  {[1, 2, 3].map((i) => <div key={i} className="skeleton-row"></div>)}
+                </div>
+              )}
+
+              <h3 className="chart-title">Quick links</h3>
+              <div className="quick-links">
+                <button className="quick-link-card" onClick={() => { setPage('admin'); setAdminTab('users'); }}>
+                  <Users2 size={20} /> Manage Users
+                </button>
+                <button className="quick-link-card" onClick={() => { setPage('admin'); setAdminTab('messages'); }}>
+                  <Inbox size={20} /> View Messages
+                  {adminMessages.filter(m => m.status === 'pending').length > 0 && (
+                    <span className="badge-count">{adminMessages.filter(m => m.status === 'pending').length}</span>
+                  )}
+                </button>
+                <button className="quick-link-card" onClick={() => { setPage('admin'); setAdminTab('analytics'); }}>
+                  <BarChart3 size={20} /> Full Analytics
+                </button>
+                <button className="quick-link-card" onClick={() => setPage('checker')}>
+                  <Search size={20} /> Check an Article
+                </button>
+              </div>
             </>
           )}
 
