@@ -809,10 +809,51 @@ textarea:focus, input:focus {
   overflow-x: auto;
 }
 
+.admin-table-wrapper {
+  overflow-x: auto;
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+}
+
 .admin-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+}
+
+.admin-table th {
+  text-align: left;
+  padding: 12px 16px;
+  background: var(--hover-bg);
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ink-muted);
+  font-weight: 700;
+  position: sticky;
+  top: 0;
+}
+
+.admin-table td {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-soft);
+  color: var(--ink);
+}
+
+.admin-table tbody tr {
+  transition: background 0.15s ease;
+}
+
+.admin-table tbody tr:hover {
+  background: var(--hover-bg);
+}
+
+.admin-table tbody tr:nth-child(even) {
+  background: rgba(128, 128, 128, 0.03);
+}
+
+.admin-table tbody tr:nth-child(even):hover {
+  background: var(--hover-bg);
 }
 
 .admin-table th {
@@ -1097,9 +1138,26 @@ textarea:focus, input:focus {
   flex: 1;
   background: var(--card-bg);
   border: 1.5px solid var(--border);
+  border-top: 4px solid var(--accent);
   border-radius: 6px;
-  padding: 16px;
-  text-align: center;
+  padding: 18px 16px;
+  text-align: left;
+  position: relative;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 4px 4px 0 var(--shadow);
+}
+
+.stat-card.accent-blue { border-top-color: #2563EB; }
+.stat-card.accent-green { border-top-color: var(--real); }
+.stat-card.accent-red { border-top-color: var(--fake); }
+
+.stat-icon {
+  color: var(--ink-muted);
+  margin-bottom: 10px;
 }
 
 .stat-number {
@@ -1376,13 +1434,19 @@ textarea:focus, input:focus {
 
 .audit-item {
   background: var(--card-bg);
-  border: 1.5px solid var(--border-soft);
+  border: 1px solid var(--border-soft);
   border-radius: 4px;
-  padding: 12px 14px;
+  padding: 12px 16px;
   display: flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.audit-item:hover {
+  background: var(--hover-bg);
+  transform: translateX(2px);
 }
 
 .audit-details {
@@ -1783,4 +1847,31 @@ textarea:focus, input:focus {
   top: 8px;
   right: 8px;
   margin-left: 0;
+}
+
+.section-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.section-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--hover-bg);
+  color: var(--accent);
+  padding: 10px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.section-header .content-title {
+  margin-bottom: 4px;
+}
+
+.section-header .subtitle {
+  margin-bottom: 0 !important;
 }

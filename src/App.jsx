@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import './App.css';
-import { User, Lock, ShieldCheck, History as HistoryIcon, Sparkles, FileText, Link2, Search, LogOut, Eye, EyeOff, Moon, Sun, HelpCircle, Clock, LayoutDashboard, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Users2, Activity, BarChart3, ScrollText, Inbox, Menu } from 'lucide-react';
+import { User, Lock, ShieldCheck, History as HistoryIcon, Sparkles, FileText, Link2, Search, LogOut, Eye, EyeOff, Moon, Sun, HelpCircle, Clock, LayoutDashboard, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Users2, Activity, BarChart3, ScrollText, Inbox, Menu, Users, FileCheck, Mail } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -1207,21 +1207,29 @@ function App() {
 
           {page === 'overview' && role === 'admin' && (
             <>
-              <h2 className="content-title">Admin Overview</h2>
-              <p className="subtitle content-subtitle">A quick snapshot of the system.</p>
+              <div className="section-header">
+               <span className="section-icon"><LayoutDashboard size={18} /></span>
+                <div>
+                  <h2 className="content-title">Admin Overview</h2>
+                  <p className="subtitle content-subtitle">A quick snapshot of the system.</p>
+                </div>
+              </div>
 
               {analytics ? (
                 <>
                   <div className="stat-cards">
-                    <div className="stat-card">
+                    <div className="stat-card accent-blue">
+                      <Users size={20} className="stat-icon" />
                       <p className="stat-number">{analytics.total_users}</p>
                       <p className="stat-label">Total Users</p>
                     </div>
-                    <div className="stat-card">
+                    <div className="stat-card accent-green">
+                      <FileCheck size={20} className="stat-icon" />
                       <p className="stat-number">{analytics.total_checks}</p>
                       <p className="stat-label">Total Checks</p>
                     </div>
-                    <div className="stat-card">
+                    <div className="stat-card accent-red">
+                      <Mail size={20} className="stat-icon" />
                       <p className="stat-number">{adminMessages.filter(m => m.status === 'pending').length}</p>
                       <p className="stat-label">Pending Messages</p>
                     </div>
@@ -1502,11 +1510,13 @@ function App() {
               {!adminLoading && adminTab === 'analytics' && analytics && (
                 <div className="analytics-view">
                   <div className="stat-cards">
-                    <div className="stat-card">
+                    <div className="stat-card accent-blue">
+                      <Users size={20} className="stat-icon" />
                       <p className="stat-number">{analytics.total_users}</p>
                       <p className="stat-label">Total Users</p>
                     </div>
-                    <div className="stat-card">
+                    <div className="stat-card accent-green">
+                      <FileCheck size={20} className="stat-icon" />
                       <p className="stat-number">{analytics.total_checks}</p>
                       <p className="stat-label">Total Checks</p>
                     </div>
@@ -1586,8 +1596,13 @@ function App() {
 
           {page === 'settings' && (
             <>
-              <h2 className="content-title">Account Settings</h2>
-              <p className="subtitle content-subtitle">Manage your name, username, and password.</p>
+              <div className="section-header">
+               <span className="section-icon"><Lock size={18} /></span>
+                <div>
+                  <h2 className="content-title">Account Settings</h2>
+                  <p className="subtitle content-subtitle">Manage your name, username, and password.</p>
+                </div>
+              </div>
 
               <label className="field-label">Display Name</label>
               <input
@@ -1685,8 +1700,13 @@ function App() {
 
           {page === 'help' && (
             <>
-              <h2 className="content-title">Help & Support</h2>
-              <p className="subtitle content-subtitle">Common questions and how to reach us.</p>
+              <div className="section-header">
+               <span className="section-icon"><HelpCircle size={18} /></span>
+                <div>
+                  <h2 className="content-title">Help & Support</h2>
+                  <p className="subtitle content-subtitle">Common questions and how to reach us.</p>
+                </div>
+              </div>
 
               <div className="faq-list">
                 <div className="faq-item">
